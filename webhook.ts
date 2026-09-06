@@ -10,15 +10,15 @@ import type { PluginNative } from "@utils/types";
 
 import type {
     ClaimRequest,
+    ClaimResult,
     WebhookEmbed,
     WebhookField,
     WebhookPayload,
     WebhookResult
 } from "./types";
 
+const BLURPLE_COLOR = 0x5865f2;
 const SUCCESS_COLOR = 0x43b581;
-const FAILURE_COLOR = 0xf04747;
-const TEST_COLOR = 0x5865f2;
 const WEBHOOK_NAME = "NitroSniper";
 
 function parseWebhookUrl(webhookUrl: string) {
@@ -41,8 +41,9 @@ function getNative() {
     return native;
 }
 
-function createPayload(embeds: WebhookEmbed[]): WebhookPayload {
+function createPayload(embeds: WebhookEmbed[], content?: string): WebhookPayload {
     return {
+        content,
         username: WEBHOOK_NAME,
         embeds,
         allowed_mentions: {
@@ -51,120 +52,149 @@ function createPayload(embeds: WebhookEmbed[]): WebhookPayload {
     };
 }
 
-function buildUserProfileUrl(userId?: string) {
-    return userId ? `https://discord.com/users/${userId}` : null;
-}
-
 function buildMessageUrl(request: ClaimRequest) {
     if (!request.channelId || !request.messageId) return null;
 
-    return `https://discordapp.com/channels/${request.guildId ?? "@me"}/${request.channelId}/${request.messageId}`;
+    return `https://discord.com/channels/${request.guildId ?? "@me"}/${request.channelId}/${request.messageId}`;
 }
 
-function escapeMarkdown(value: string) {
-    return value.replace(/([\\`*_{}[\\]()#+.!|>~-])/g, "\\$1");
-}
+function buildClaimFields(request: ClaimRequest, claimResult?: ClaimResult): WebhookField[] {
+    const fields: WebhookField[] = [];
 
-function buildGiftTypeField(giftType: string | null): WebhookField | null {
-    if (!giftType) return null;
+    // 1. Code (inline: true)
+    fields.push({
+        name: "Code",
+        value: `\`${request.code}\``,
+        inline: true
+    });
 
-    return {
-        name: "Gift Type:",
-        value: escapeMarkdown(giftType),
+    // 2. Link (inline: true)
+    fields.push({
+        name: "Link",
+        value: `[Claim Link](https://discord.gift/${request.code})`,
+        inline: true
+    });
+
+    // 3. Detected By (Alt) or (Main) (inline: false)
+    const detectedName = request.detectedBy ?? "Unknown";
+    const detectedTitle = request.isAlt ? "Detected By (Alt)" : "Detected By (Main)";
+    const detectedValue = request.detectedById
+        ? `${detectedName} ( \`${request.detectedById}\` )`
+        : detectedName;
+
+    fields.push({
+        name: detectedTitle,
+        value: detectedValue,
         inline: false
-    };
-}
+    });
 
-function buildAuthorField(request: ClaimRequest): WebhookField | null {
-    const label = request.authorName ?? request.authorUsername ?? request.authorId;
-    if (!label) return null;
+    // 4. Server (inline: true)
+    const serverName = request.guildName ?? (request.guildId ? "Unknown Server" : "Direct Messages");
+    const serverValue = request.guildId
+        ? `${serverName} ( \`${request.guildId}\` )`
+        : serverName;
 
-    const profileUrl = buildUserProfileUrl(request.authorId);
-    return {
-        name: "Code sent by:",
-        value: profileUrl ? `[${escapeMarkdown(label)}](${profileUrl})` : escapeMarkdown(label),
+    fields.push({
+        name: "Server",
+        value: serverValue,
+        inline: true
+    });
+
+    // 5. Channel (inline: true)
+    const rawChan = request.channelName ?? (request.guildId ? "channel" : "Direct Messages");
+    const cleanChan = rawChan.startsWith("#") ? rawChan : `#${rawChan}`;
+    const channelValue = request.channelId
+        ? `${cleanChan} ( \`${request.channelId}\` )`
+        : cleanChan;
+
+    fields.push({
+        name: "Channel",
+        value: channelValue,
+        inline: true
+    });
+
+    // 6. Sender (inline: false)
+    const senderName = request.authorUsername ?? request.authorName ?? "Unknown";
+    const senderValue = request.authorId
+        ? `${senderName} ( \`${request.authorId}\` )`
+        : senderName;
+
+    fields.push({
+        name: "Sender",
+        value: senderValue,
         inline: false
-    };
-}
+    });
 
-function buildMessageField(request: ClaimRequest): WebhookField | null {
+    // 7. Message Link (inline: true)
     const messageUrl = buildMessageUrl(request);
-    if (!messageUrl) return null;
+    fields.push({
+        name: "Message Link",
+        value: messageUrl ? `[Jump to Message](${messageUrl})` : "None",
+        inline: true
+    });
 
-    return {
-        name: "Message:",
-        value: `[Posted here!](${messageUrl})`,
-        inline: false
-    };
-}
+    // 8. Delay (inline: true)
+    const delay = claimResult?.elapsedMs ?? (request.detectedAt ? Math.max(1, Date.now() - request.detectedAt) : undefined);
+    fields.push({
+        name: "Delay",
+        value: typeof delay === "number" ? `\`${delay}ms\`` : "`Unknown`",
+        inline: true
+    });
 
-function buildClaimFields(request: ClaimRequest, giftType: string | null) {
-    return [
-        buildGiftTypeField(giftType),
-        buildAuthorField(request),
-        buildMessageField(request)
-    ].filter((field): field is WebhookField => field != null);
-}
-
-function getResultPresentation(result: WebhookResult) {
-    switch (result) {
-        case "claimed":
-            return {
-                title: "Yay! Claimed a Nitro!",
-                color: SUCCESS_COLOR
-            };
-        case "failed":
-        default:
-            return {
-                title: "Failed to claim nitro",
-                color: FAILURE_COLOR
-            };
+    // 9. If claimed, show Claimed on
+    if (claimResult?.success && claimResult.claimedBy) {
+        fields.push({
+            name: "Claimed on",
+            value: claimResult.claimedBy,
+            inline: false
+        });
     }
+
+    return fields;
 }
 
-function buildEmbedAuthor(request: ClaimRequest) {
-    const name = request.authorName ?? request.authorUsername;
-    if (!name) return undefined;
-
+function buildClaimEmbed(
+    result: WebhookResult,
+    request: ClaimRequest,
+    claimResult?: ClaimResult
+): WebhookEmbed {
     return {
-        name,
-        icon_url: request.authorAvatarUrl
-    };
-}
-
-function buildClaimEmbed(result: WebhookResult, request: ClaimRequest, giftType: string | null): WebhookEmbed {
-    const presentation = getResultPresentation(result);
-
-    return {
-        title: presentation.title,
-        color: presentation.color,
-        fields: buildClaimFields(request, giftType),
-        timestamp: new Date().toISOString(),
-        author: buildEmbedAuthor(request),
-        footer: {
-            text: WEBHOOK_NAME
-        }
+        author: {
+            name: "🎁 Discord Gift Detected!",
+            icon_url: request.guildIconUrl
+        },
+        color: result === "claimed" ? SUCCESS_COLOR : BLURPLE_COLOR,
+        fields: buildClaimFields(request, claimResult)
     };
 }
 
 function buildTestWebhookPayload(): WebhookPayload {
-    return createPayload([
-        {
-            title: "NitroSniper Webhook Test",
-            color: TEST_COLOR,
-            description: "Your NitroSniper webhook is configured correctly.",
-            timestamp: new Date().toISOString(),
-            footer: {
-                text: WEBHOOK_NAME
-            }
-        }
-    ]);
-}
+    const testRequest: ClaimRequest = {
+        code: "vhnuzeE2YkNCZ7sfYHHKebKXB",
+        authorId: "1286955963508850719",
+        authorUsername: "cr_a_s_h",
+        channelId: "731254148678549595",
+        channelName: "lounge",
+        guildId: "505974446914535426",
+        guildName: "Socialize | Active VC Server • Hangout • Voice Chat • Call • Social • Chill • Anime • Memes • Emojis",
+        guildIconUrl: "https://cdn.discordapp.com/icons/1181008820433068042/b0b48a4bfc0aa5f73018ceda9178c103.png?size=128",
+        messageId: "1361736124858630274",
+        detectedBy: "wkcp",
+        detectedById: "1154222789409509459",
+        isAlt: true,
+        detectedAt: Date.now() - 142
+    };
 
-function buildClaimWebhookPayload(result: WebhookResult, request: ClaimRequest, giftType: string | null): WebhookPayload {
-    return createPayload([
-        buildClaimEmbed(result, request, giftType)
-    ]);
+    const testClaimResult: ClaimResult = {
+        success: false,
+        elapsedMs: 142,
+        attempts: []
+    };
+
+    return createPayload(
+        [buildClaimEmbed("failed", testRequest, testClaimResult)],
+        `https://discord.gift/${testRequest.code}`
+    );
 }
 
 function parseWebhookError(data: string, status: number) {
@@ -201,12 +231,14 @@ export async function sendClaimWebhook(
     webhookUrl: string,
     result: WebhookResult,
     request: ClaimRequest,
-    giftType: string | null
+    _giftType?: string | null,
+    claimResult?: ClaimResult
 ) {
     const url = parseWebhookUrl(webhookUrl);
     if (!url) return;
 
-    await postWebhook(url, buildClaimWebhookPayload(result, request, giftType));
+    const content = `https://discord.gift/${request.code}`;
+    await postWebhook(url, createPayload([buildClaimEmbed(result, request, claimResult)], content));
 }
 
 export async function sendTestWebhook(webhookUrl: string) {
