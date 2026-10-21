@@ -4,7 +4,7 @@
 [![Sponsor Me](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/neoarz)
 [![Status](https://img.shields.io/badge/Status-Working-73b369)](https://github.com/neoarz/NitroSniper)
 
-A simple Vencord/Equicord plugin to auto snipe nitro gift codes
+A simple Vencord/Equicord plugin to auto snipe nitro gift codes, with multi user token support.
 
 
 | ![Demo of plugin](assets/snipes.png)                                                                            |
@@ -20,6 +20,7 @@ A simple Vencord/Equicord plugin to auto snipe nitro gift codes
 - [Vencord](https://github.com/vencord/vencord)
 - [Equicord](https://github.com/Equicord/Equicord) (The fork im currently using)
 - [Discord](https://discord.com) for putting captcha on token based sniping inspiring me to make this :D
+- [Neoarz](https://github.com/neoarz/NitroSniper) The original creator of the Nitro Sniper equicord plugin.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
