@@ -11,6 +11,10 @@ A simple Vencord/Equicord plugin to auto snipe nitro gift codes, with multi user
 | :--------------------------------------------------------------------------------------------------: |
 | This isn't even the full screenshot. See [here](https://github.com/neoarz/NitroSniper/blob/main/assets/full.png) |
 
+| ![Demo of plugin](assets/tokensupport.png)                                                                       |
+| :--------------------------------------------------------------------------------------------------: |
+| There is also Bulk Paste Mode. See [here](https://github.com/aboveproof/NitroSniper/blob/main/assets/bulktokenpaste.png) |
+
 > [!CAUTION]
 > **Use at your own risk**
 > 
