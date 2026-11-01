@@ -14,6 +14,14 @@ import { AuthenticationStore, UserStore } from "@webpack/common";
 import { resolveGiftType } from "./giftCode";
 import { settings } from "./settings";
 import {
+    canClaimNow,
+    humanizedClaimDelay,
+    isCaptchaResponse,
+    preValidateCode,
+    recordCaptchaSignal,
+    recordClaimAttempt
+} from "./stealth";
+import {
     ClaimAttempt,
     ClaimRequest,
     ClaimResult,
@@ -30,11 +38,48 @@ function getNative() {
     return (globalThis as any).VencordNative?.pluginHelpers?.NitroSniper as PluginNative<typeof import("./native")> | undefined;
 }
 
+/**
+ * Real browser-like headers for token requests, drawn from the live client
+ * when available. Token claims sent with bare auth headers are a classic
+ * risk-engine flag; matching the host client's properties avoids that.
+ */
+function getSuperProperties(): Record<string, string> {
+    try {
+        const sp = (globalThis as any).__contextWindow?.discord__sandbox?.contextBridgeApi
+            ?.getSuperProperties?.() as Record<string, unknown> | undefined;
+        if (sp && typeof sp === "object") {
+            return Object.fromEntries(
+                Object.entries(sp).map(([k, v]) => [k, String(v)])
+            );
+        }
+    } catch { /* fall through to defaults */ }
+
+    const ua = navigator.userAgent;
+    return {
+        os: ua.includes("Mac") ? "MacOS" : ua.includes("Linux") ? "Linux" : "Windows",
+        browser: "Discord Client",
+        release_channel: "stable",
+        client_version: "31f3007", // 1.0.9160 host version tag
+        os_version: "10",
+        system_locale: navigator.language || "en-US"
+    };
+}
+
+function buildTokenHeaders(token: string): Record<string, string> {
+    return {
+        "Authorization": token,
+        "Content-Type": "application/json",
+        "User-Agent": navigator.userAgent,
+        "X-Super-Properties": btoa(JSON.stringify(getSuperProperties()))
+    };
+}
+
 interface SingleRedeemResult {
     success: boolean;
     tokenLabel: string;
     alreadyHasSubscription?: boolean;
     codeExhaustedOrInvalid?: boolean;
+    captchaRequired?: boolean;
     error?: string;
 }
 
@@ -153,16 +198,13 @@ async function redeemViaToken(token: SniperToken, code: string, channelId?: stri
     let res: NativeApiResponse;
 
     try {
+        const headers = buildTokenHeaders(cleanToken);
         if (native?.redeemGiftCode) {
-            res = await native.redeemGiftCode(cleanToken, code, channelId);
+            res = await native.redeemGiftCode(cleanToken, code, channelId, headers["X-Super-Properties"], headers["User-Agent"]);
         } else {
             const response = await fetch(`https://discord.com/api/v9/entitlements/gift-codes/${encodeURIComponent(code)}/redeem`, {
                 method: "POST",
-                headers: {
-                    "Authorization": cleanToken,
-                    "Content-Type": "application/json",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-                },
+                headers,
                 body: JSON.stringify({
                     channel_id: channelId ?? null,
                     payment_source_id: null
@@ -180,6 +222,16 @@ async function redeemViaToken(token: SniperToken, code: string, channelId?: stri
             return {
                 success: true,
                 tokenLabel: label
+            };
+        }
+
+        if (isCaptchaResponse(res.status, res.data)) {
+            recordCaptchaSignal(`token ${label}`);
+            return {
+                success: false,
+                tokenLabel: label,
+                captchaRequired: true,
+                error: "captcha_required"
             };
         }
 
@@ -222,11 +274,16 @@ async function redeemViaCurrentAccount(code: string, channelId?: string): Promis
                         : JSON.stringify(error?.body ?? { message: error?.message ?? String(error) });
                     const parsed = parseTokenError(status, data);
 
+                    if (isCaptchaResponse(status, data)) {
+                        recordCaptchaSignal("current account GiftActions");
+                    }
+
                     resolve({
                         success: false,
                         tokenLabel: label,
                         alreadyHasSubscription: parsed.alreadyHasSub,
                         codeExhaustedOrInvalid: parsed.codeExhausted,
+                        captchaRequired: isCaptchaResponse(status, data),
                         error: parsed.message
                     });
                 }
@@ -260,6 +317,32 @@ export async function executeRedeem(request: ClaimRequest): Promise<ClaimResult>
 
     const attempts: ClaimAttempt[] = [];
     const giftTypePromise = settings.store.webhookUrl.trim() ? resolveGiftType(request.code) : Promise.resolve(null);
+
+    // Stealth gate: velocity budgets + captcha cooldown
+    const gate = canClaimNow();
+    if (!gate.allowed) {
+        logger.warn(`Skipping code [${request.code}]: ${gate.reason}${gate.retryInMs ? ` (retry in ~${Math.round(gate.retryInMs / 1000)}s)` : ""}`);
+        return {
+            success: false,
+            giftType: await giftTypePromise,
+            elapsedMs: Math.max(1, Date.now() - startTime),
+            attempts: [{ tokenLabel: "stealth", success: false, error: gate.reason }]
+        };
+    }
+
+    // Pre-validate: never let dead bait codes touch the redeem endpoint
+    if (!await preValidateCode(request.code)) {
+        return {
+            success: false,
+            giftType: null,
+            elapsedMs: Math.max(1, Date.now() - startTime),
+            attempts: [{ tokenLabel: "pre-validation", success: false, error: "dead or exhausted code" }]
+        };
+    }
+
+    // Humanized reaction delay before the first redeem attempt
+    await humanizedClaimDelay();
+    recordClaimAttempt();
 
     logger.log(`Executing redeem for code [${request.code}] using strategy: ${strategy}`);
 
@@ -343,6 +426,12 @@ export async function executeRedeem(request: ClaimRequest): Promise<ClaimResult>
         // If the code is already claimed by someone else or completely invalid, stop trying further tokens
         if (result.codeExhaustedOrInvalid) {
             logger.warn(`Gift code [${request.code}] was already claimed or invalid. Aborting further attempts.`);
+            break;
+        }
+
+        // Captcha challenge: hammering more tokens while flagged only deepens the risk score
+        if (result.captchaRequired) {
+            logger.warn(`Captcha required on [${request.code}]. Aborting sequence and backing off.`);
             break;
         }
 

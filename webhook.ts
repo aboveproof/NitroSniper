@@ -8,6 +8,7 @@ https://github.com/neoarz/NitroSniper
 
 import type { PluginNative } from "@utils/types";
 
+import { settings } from "./settings";
 import type {
     ClaimRequest,
     ClaimResult,
@@ -248,4 +249,23 @@ export async function sendTestWebhook(webhookUrl: string) {
     }
 
     await postWebhook(url, buildTestWebhookPayload());
+}
+
+const CAPTCHA_COLOR = 0xfaa61a;
+
+export async function sendCaptchaAlertWebhook(webhookUrl: string, stuckSeconds: number) {
+    const url = parseWebhookUrl(webhookUrl);
+    if (!url) return;
+
+    await postWebhook(url, createPayload([
+        {
+            title: "Captcha Detected",
+            color: CAPTCHA_COLOR,
+            description: `A captcha has been stuck on screen for over ${stuckSeconds} seconds. Claim backoff engaged.${settings.store.captchaAutoReload ? " Reloading Discord..." : ""}`,
+            timestamp: new Date().toISOString(),
+            footer: {
+                text: WEBHOOK_NAME
+            }
+        }
+    ]));
 }
