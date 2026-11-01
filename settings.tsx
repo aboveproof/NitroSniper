@@ -75,6 +75,42 @@ export const settings = definePluginSettings({
         default: false,
         restartNeeded: false
     },
+    blacklistServerIds: {
+        type: OptionType.STRING,
+        description: "Never claim in these servers. Comma/space/newline separated IDs.",
+        default: "",
+        restartNeeded: false
+    },
+    blacklistChannelIds: {
+        type: OptionType.STRING,
+        description: "Never claim in these channels (works in servers too). Comma/space/newline separated IDs.",
+        default: "",
+        restartNeeded: false
+    },
+    blacklistDmIds: {
+        type: OptionType.STRING,
+        description: "Never claim in these DMs / group DMs. User IDs (blocks their DM) or channel IDs (blocks group DMs).",
+        default: "",
+        restartNeeded: false
+    },
+    whitelistServerIds: {
+        type: OptionType.STRING,
+        description: "Only claim in these servers (leave ALL whitelists empty to claim everywhere). Comma/space/newline separated IDs.",
+        default: "",
+        restartNeeded: false
+    },
+    whitelistChannelIds: {
+        type: OptionType.STRING,
+        description: "Only claim in these channels. Comma/space/newline separated IDs.",
+        default: "",
+        restartNeeded: false
+    },
+    whitelistDmIds: {
+        type: OptionType.STRING,
+        description: "Only claim in these DMs / group DMs. User IDs or channel IDs.",
+        default: "",
+        restartNeeded: false
+    },
     captchaPrevention: {
         type: OptionType.BOOLEAN,
         description: "Humanize claim timing, enforce velocity budgets, and back off after captcha signals. Strongly reduces the risk engine flagging your claims.",

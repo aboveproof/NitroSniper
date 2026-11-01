@@ -12,6 +12,7 @@ import { Message } from "@vencord/discord-types";
 import { ChannelStore, GuildStore, UserStore } from "@webpack/common";
 
 import { startCaptchaWatcher, stopCaptchaWatcher } from "./captchaWatcher";
+import { checkFilters } from "./filters";
 import { gatewayManager } from "./gateway";
 import { executeRedeem } from "./redeemer";
 import { settings } from "./settings";
@@ -93,6 +94,8 @@ function createClaimRequest(message: Message): ClaimRequest | null {
 }
 
 function handleIncomingClaimRequest(request: ClaimRequest) {
+    if (!checkFilters(request)) return;
+
     if (seenCodes.has(request.code)) {
         logger.log(`Ignoring duplicate gift code: ${request.code}`);
         return;
