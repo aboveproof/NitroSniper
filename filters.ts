@@ -76,3 +76,45 @@ export function checkFilters(request: ClaimRequest): boolean {
     }
     return true;
 }
+
+export type ListKind = "blacklist" | "whitelist";
+export type LocationKind = "server" | "channel" | "dm";
+
+const settingKeys: Record<ListKind, Record<LocationKind, string>> = {
+    blacklist: {
+        server: "blacklistServerIds",
+        channel: "blacklistChannelIds",
+        dm: "blacklistDmIds"
+    },
+    whitelist: {
+        server: "whitelistServerIds",
+        dm: "whitelistDmIds",
+        channel: "whitelistChannelIds"
+    }
+};
+
+function getList(list: ListKind, kind: LocationKind): string[] {
+    const raw = (settings.store as any)[settingKeys[list][kind]] as string | undefined ?? "";
+    return raw.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
+}
+
+function saveList(list: ListKind, kind: LocationKind, ids: string[]) {
+    (settings.store as any)[settingKeys[list][kind]] = ids.join(", ");
+}
+
+export function isListed(list: ListKind, kind: LocationKind, id: string): boolean {
+    return getList(list, kind).includes(id);
+}
+
+export function toggleListed(list: ListKind, kind: LocationKind, id: string): boolean {
+    const ids = getList(list, kind);
+    const idx = ids.indexOf(id);
+    if (idx !== -1) {
+        ids.splice(idx, 1);
+        saveList(list, kind, ids);
+        return false;
+    }
+    ids.push(id);
+    saveList(list, kind, ids);
+    return true;
+}

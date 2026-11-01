@@ -12,6 +12,7 @@ import { Message } from "@vencord/discord-types";
 import { ChannelStore, GuildStore, UserStore } from "@webpack/common";
 
 import { startCaptchaWatcher, stopCaptchaWatcher } from "./captchaWatcher";
+import { contextMenus } from "./components/SniperMenus";
 import { checkFilters } from "./filters";
 import { gatewayManager } from "./gateway";
 import { executeRedeem } from "./redeemer";
@@ -171,6 +172,7 @@ export default definePlugin({
     tags: ["Chat", "Utility"],
     searchTerms: ["nitro", "gift", "redeem", "snipe", "tokens"],
     settings,
+    contextMenus,
 
     start() {
         resetState();

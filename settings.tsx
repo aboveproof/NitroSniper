@@ -7,10 +7,15 @@ https://github.com/neoarz/NitroSniper
 */
 
 import { definePluginSettings } from "@api/Settings";
+import { Flex } from "@components/Flex";
+import { FormSwitch } from "@components/FormSwitch";
+import { Heading } from "@components/Heading";
+import { Paragraph } from "@components/Paragraph";
 import { OptionType } from "@utils/types";
 import { Button, showToast, Toasts } from "@webpack/common";
 
 import { TokenManager } from "./components/TokenManager";
+import { ListEditor, Section } from "./components/SettingsSections";
 import { gatewayManager } from "./gateway";
 import { RedeemStrategy, SniperToken } from "./types";
 import { sendTestWebhook } from "./webhook";
@@ -43,10 +48,69 @@ function TestWebhookButton() {
     );
 }
 
+function BlacklistSection() {
+    return (
+        <Section title="Blacklists" defaultOpen>
+            <Paragraph size="sm" color="text-subtle" style={{ margin: 0 }}>
+                Right-click any server, channel, DM or group DM → "Sniper: Blacklist / Whitelist", or paste IDs below.
+            </Paragraph>
+            <ListEditor list="blacklist" kind="server" title="Servers" hint="Never claim in these servers." />
+            <ListEditor list="blacklist" kind="channel" title="Channels" hint="Never claim in these channels." />
+            <ListEditor list="blacklist" kind="dm" title="DMs & Groups" hint="User IDs or DM channel IDs. Never claim here." />
+        </Section>
+    );
+}
+
+function WhitelistSection() {
+    return (
+        <Section title="Whitelists" defaultOpen={false}>
+            <Paragraph size="sm" color="text-subtle" style={{ margin: 0 }}>
+                If any whitelist has entries, claiming is restricted to whitelisted locations only. Blacklist always wins.
+            </Paragraph>
+            <ListEditor list="whitelist" kind="server" title="Servers" hint="Only claim in these servers." />
+            <ListEditor list="whitelist" kind="channel" title="Channels" hint="Only claim in these channels." />
+            <ListEditor list="whitelist" kind="dm" title="DMs & Groups" hint="User IDs or DM channel IDs." />
+        </Section>
+    );
+}
+
+function CaptchaSection() {
+    const { captchaPrevention, captchaWatcher, captchaAutoReload } = settings.use(["captchaPrevention", "captchaWatcher", "captchaAutoReload"]);
+    return (
+        <Section title="Captcha Prevention" defaultOpen={false}>
+            <FormSwitch
+                title="Prevention engine"
+                description="Back off after captcha signals. Never blocks fresh claims by default."
+                value={captchaPrevention}
+                onChange={v => settings.store.captchaPrevention = v}
+                hideBorder
+            />
+            <Flex flexDirection="row" gap="16px" flexWrap="wrap">
+                <span style={{ minWidth: 140 }}>
+                    <FormSwitch
+                        title="Captcha watcher"
+                        value={captchaWatcher}
+                        onChange={v => settings.store.captchaWatcher = v}
+                        hideBorder
+                    />
+                </span>
+                <span style={{ minWidth: 140 }}>
+                    <FormSwitch
+                        title="Auto-reload"
+                        value={captchaAutoReload}
+                        onChange={v => settings.store.captchaAutoReload = v}
+                        hideBorder
+                    />
+                </span>
+            </Flex>
+        </Section>
+    );
+}
+
 export const settings = definePluginSettings({
     tokenManager: {
         type: OptionType.COMPONENT,
-        description: "Configure secondary account tokens. Enabled tokens will always listen in real time for gift links via Discord Gateway, and can be used to claim Nitro.",
+        description: "Configure secondary account tokens.",
         component: TokenManager
     },
     tokens: {
@@ -60,7 +124,7 @@ export const settings = definePluginSettings({
 
     redeemStrategy: {
         type: OptionType.SELECT,
-        description: "Choose how to prioritize which account redeems the gift code.",
+        description: "Which account redeems the gift code.",
         options: [
             { label: "Current Account First, then Alts", value: RedeemStrategy.CURRENT_FIRST, default: true },
             { label: "Alts First, then Current Account", value: RedeemStrategy.ALTS_FIRST },
@@ -71,122 +135,153 @@ export const settings = definePluginSettings({
     },
     ignoreOwnGiftLinks: {
         type: OptionType.BOOLEAN,
-        description: "Do not redeem Nitro gift links from messages sent by you.",
+        description: "Skip gift links sent by you.",
         default: false,
         restartNeeded: false
     },
+
+    blacklistSection: {
+        type: OptionType.COMPONENT,
+        component: BlacklistSection
+    },
+    whitelistSection: {
+        type: OptionType.COMPONENT,
+        component: WhitelistSection
+    },
+    captchaSection: {
+        type: OptionType.COMPONENT,
+        component: CaptchaSection
+    },
+
     blacklistServerIds: {
         type: OptionType.STRING,
-        description: "Never claim in these servers. Comma/space/newline separated IDs.",
+        description: "Never claim in these servers.",
         default: "",
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     blacklistChannelIds: {
         type: OptionType.STRING,
-        description: "Never claim in these channels (works in servers too). Comma/space/newline separated IDs.",
+        description: "Never claim in these channels.",
         default: "",
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     blacklistDmIds: {
         type: OptionType.STRING,
-        description: "Never claim in these DMs / group DMs. User IDs (blocks their DM) or channel IDs (blocks group DMs).",
+        description: "Never claim in these DMs.",
         default: "",
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     whitelistServerIds: {
         type: OptionType.STRING,
-        description: "Only claim in these servers (leave ALL whitelists empty to claim everywhere). Comma/space/newline separated IDs.",
+        description: "Only claim in these servers.",
         default: "",
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     whitelistChannelIds: {
         type: OptionType.STRING,
-        description: "Only claim in these channels. Comma/space/newline separated IDs.",
+        description: "Only claim in these channels.",
         default: "",
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     whitelistDmIds: {
         type: OptionType.STRING,
-        description: "Only claim in these DMs / group DMs. User IDs or channel IDs.",
+        description: "Only claim in these DMs.",
         default: "",
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
+
     captchaPrevention: {
         type: OptionType.BOOLEAN,
-        description: "Humanize claim timing, enforce velocity budgets, and back off after captcha signals. Strongly reduces the risk engine flagging your claims.",
+        description: "Captcha prevention engine.",
         default: true,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     stealthMinDelayMs: {
         type: OptionType.NUMBER,
-        description: "Minimum humanized delay before claiming (ms). 0 = claim instantly.",
+        description: "Minimum humanized delay before claiming (ms).",
         default: 0,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     stealthMaxDelayMs: {
         type: OptionType.NUMBER,
-        description: "Maximum humanized delay before claiming (ms). 0 = claim instantly.",
+        description: "Maximum humanized delay before claiming (ms).",
         default: 0,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     claimCooldownSeconds: {
         type: OptionType.NUMBER,
-        description: "Minimum seconds between two claim attempts. 0 = no cooldown.",
+        description: "Minimum seconds between two claim attempts.",
         default: 0,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     maxClaimsPerHour: {
         type: OptionType.NUMBER,
         description: "Max claim attempts per hour (0 = unlimited).",
         default: 0,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     maxClaimsPerDay: {
         type: OptionType.NUMBER,
         description: "Max claim attempts per day (0 = unlimited).",
         default: 0,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     captchaBackoffMinutes: {
         type: OptionType.NUMBER,
-        description: "Minutes to stop claiming after a captcha/risk signal is detected (stacks per signal). Only engages after an actual captcha.",
+        description: "Minutes to stop claiming after a captcha signal.",
         default: 30,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     preValidateCodes: {
         type: OptionType.BOOLEAN,
-        description: "Resolve codes through the read-only endpoint first (adds one round trip). Off = maximum claim speed.",
+        description: "Resolve codes before redeeming.",
         default: false,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     captchaWatcher: {
         type: OptionType.BOOLEAN,
-        description: "Watch for captcha challenges stuck on screen and fire alerts/backoff.",
+        description: "Watch for stuck captcha challenges.",
         default: true,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     captchaAutoReload: {
         type: OptionType.BOOLEAN,
-        description: "Reload Discord when a captcha stays on screen for too long.",
+        description: "Reload Discord when a captcha is stuck.",
         default: false,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
     captchaStuckSeconds: {
         type: OptionType.NUMBER,
-        description: "Seconds a captcha must be visible before alerting/reloading.",
+        description: "Seconds before a captcha counts as stuck.",
         default: 10,
-        restartNeeded: false
+        restartNeeded: false,
+        hidden: true
     },
+
     webhookUrl: {
         type: OptionType.STRING,
-        description: "Discord webhook URL to notify after each redeem attempt. Leave empty to disable.",
+        description: "Discord webhook URL for claim notifications. Empty = off.",
         default: "",
         restartNeeded: false
     },
     testWebhook: {
         type: OptionType.COMPONENT,
-        description: "Send a test message to the configured webhook.",
         component: TestWebhookButton
     }
 });
-
