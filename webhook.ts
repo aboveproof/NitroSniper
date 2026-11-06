@@ -9,6 +9,7 @@ https://github.com/neoarz/NitroSniper
 import type { PluginNative } from "@utils/types";
 
 import { settings } from "./settings";
+import { getStats, hitRate, statsSummary } from "./stats";
 import type {
     ClaimRequest,
     ClaimResult,
@@ -151,6 +152,15 @@ function buildClaimFields(request: ClaimRequest, claimResult?: ClaimResult): Web
         });
     }
 
+    // 10. Lifetime tally
+    const stats = getStats(settings.store);
+    const rate = hitRate(stats);
+    fields.push({
+        name: "Lifetime",
+        value: `${statsSummary(stats)}${rate != null ? ` — ${rate}% hit rate` : ""}`,
+        inline: false
+    });
+
     return fields;
 }
 
@@ -159,13 +169,18 @@ function buildClaimEmbed(
     request: ClaimRequest,
     claimResult?: ClaimResult
 ): WebhookEmbed {
+    const stats = getStats(settings.store);
+    const rate = hitRate(stats);
     return {
         author: {
             name: "🎁 Discord Gift Detected!",
             icon_url: request.guildIconUrl
         },
         color: result === "claimed" ? SUCCESS_COLOR : BLURPLE_COLOR,
-        fields: buildClaimFields(request, claimResult)
+        fields: buildClaimFields(request, claimResult),
+        footer: {
+            text: `${stats.claimed} claimed / ${stats.attempted} attempted${rate != null ? ` (${rate}%)` : ""}`
+        }
     };
 }
 

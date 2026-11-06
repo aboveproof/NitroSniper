@@ -17,6 +17,7 @@ import { checkFilters } from "./filters";
 import { gatewayManager } from "./gateway";
 import { executeRedeem } from "./redeemer";
 import { settings } from "./settings";
+import { getStats, recordDetected, recordResult } from "./stats";
 import { resetStealthState } from "./stealth";
 import { cleanTokens, type ClaimRequest, type SniperToken } from "./types";
 import { sendClaimWebhook } from "./webhook";
@@ -108,6 +109,7 @@ function handleIncomingClaimRequest(request: ClaimRequest) {
         seenCodes.delete(first);
     }
 
+    recordDetected(settings.store);
     claimQueue.push(request);
     void processQueue();
 }
@@ -122,9 +124,11 @@ async function processQueue() {
 
     try {
         const result = await executeRedeem(request);
+        recordResult(settings.store, result);
 
         if (result.success) {
-            logger.log(`Successfully redeemed code: ${request.code} on ${result.claimedBy ?? "Unknown Account"}`);
+            const stats = getStats(settings.store);
+            logger.log(`Successfully redeemed code: ${request.code} on ${result.claimedBy ?? "Unknown Account"} — ${stats.claimed}/${stats.attempted} lifetime`);
             void sendClaimWebhook(
                 settings.store.webhookUrl,
                 "claimed",

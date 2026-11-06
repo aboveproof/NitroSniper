@@ -7,16 +7,19 @@ https://github.com/neoarz/NitroSniper
 */
 
 import { definePluginSettings } from "@api/Settings";
+import { Button } from "@components/Button";
 import { Flex } from "@components/Flex";
 import { FormSwitch } from "@components/FormSwitch";
 import { Heading } from "@components/Heading";
 import { Paragraph } from "@components/Paragraph";
+import { Span } from "@components/Span";
 import { OptionType } from "@utils/types";
-import { Button, showToast, Toasts } from "@webpack/common";
+import { showToast, Toasts, useState } from "@webpack/common";
 
 import { TokenManager } from "./components/TokenManager";
 import { ListEditor, Section } from "./components/SettingsSections";
 import { gatewayManager } from "./gateway";
+import { getStats, hitRate, resetStats, statsSummary, topAccounts } from "./stats";
 import { RedeemStrategy, SniperToken } from "./types";
 import { sendTestWebhook } from "./webhook";
 
@@ -50,7 +53,7 @@ function TestWebhookButton() {
 
 function BlacklistSection() {
     return (
-        <Section title="Blacklists" defaultOpen>
+        <Section title="Blacklists">
             <Paragraph size="sm" color="text-subtle" style={{ margin: 0 }}>
                 Right-click any server, channel, DM or group DM → "Sniper: Blacklist / Whitelist", or paste IDs below.
             </Paragraph>
@@ -107,6 +110,49 @@ function CaptchaSection() {
     );
 }
 
+function StatsSection() {
+    const { claimStats } = settings.use(["claimStats"]);
+    const stats = getStats({ claimStats });
+    const rate = hitRate(stats);
+    const accounts = topAccounts(stats);
+    const [, forceUpdate] = useState(0);
+
+    return (
+        <Section title="Claim Stats" defaultOpen>
+            <Flex flexDirection="row" gap="16px" flexWrap="wrap" justifyContent="space-between" alignItems="center">
+                <Heading tag="h5" style={{ margin: 0 }}>{statsSummary(stats)}</Heading>
+                {rate != null && <Span size="md" color="text-default">{rate}% hit rate</Span>}
+            </Flex>
+            {accounts.length > 0 && (
+                <Flex flexDirection="column" gap="4px">
+                    {accounts.map(({ account, wins }) => (
+                        <Flex key={account} flexDirection="row" justifyContent="space-between" alignItems="center">
+                            <Span size="sm" color="text-default">{account}</Span>
+                            <Span size="sm" color="text-subtle">{wins} win{wins === 1 ? "" : "s"}</Span>
+                        </Flex>
+                    ))}
+                </Flex>
+            )}
+            {stats.lastClaimAt > 0 && (
+                <Span size="sm" color="text-subtle">
+                    Last claim: {new Date(stats.lastClaimAt).toLocaleString()}
+                </Span>
+            )}
+            <Button
+                size="small"
+                variant="dangerSecondary"
+                onClick={() => {
+                    resetStats(settings.store);
+                    forceUpdate(n => n + 1);
+                    showToast("Claim stats reset.", Toasts.Type.MESSAGE);
+                }}
+            >
+                Reset Stats
+            </Button>
+        </Section>
+    );
+}
+
 export const settings = definePluginSettings({
     tokenManager: {
         type: OptionType.COMPONENT,
@@ -151,6 +197,18 @@ export const settings = definePluginSettings({
     captchaSection: {
         type: OptionType.COMPONENT,
         component: CaptchaSection
+    },
+    statsSection: {
+        type: OptionType.COMPONENT,
+        component: StatsSection
+    },
+
+    claimStats: {
+        type: OptionType.CUSTOM,
+        description: "Lifetime claim statistics.",
+        default: null,
+        restartNeeded: false,
+        hidden: true
     },
 
     blacklistServerIds: {
