@@ -11,7 +11,7 @@ import { Button } from "@components/Button";
 import { FormSwitch } from "@components/FormSwitch";
 import { Heading } from "@components/Heading";
 import { Paragraph } from "@components/Paragraph";
-import { React, showToast, TextArea, TextInput, Toasts, useState } from "@webpack/common";
+import { React, showToast, TextArea, TextInput, useState } from "@webpack/common";
 
 import { gatewayManager } from "../gateway";
 import { getDefaultAvatarUrl, getUserIdFromToken, validateToken } from "../redeemer";
@@ -66,13 +66,13 @@ export function TokenManager() {
     const handleAddToken = async () => {
         const raw = newToken.trim();
         if (!raw) {
-            showToast("Please enter a valid token.", Toasts.Type.FAILURE);
+            showToast("Please enter a valid token.", "failure");
             return;
         }
 
         // Check if token is already in the list
         if (tokenList.some((t: SniperToken) => t.token.trim() === raw)) {
-            showToast("This token is already in your list.", Toasts.Type.FAILURE);
+            showToast("This token is already in your list.", "failure");
             return;
         }
 
@@ -97,12 +97,12 @@ export function TokenManager() {
             setNewLabel("");
 
             if (validation.valid) {
-                showToast(`Token added for @${validation.username ?? "user"}!`, Toasts.Type.SUCCESS);
+                showToast(`Token added for @${validation.username ?? "user"}!`, "success");
             } else {
-                showToast("Token saved, but could not verify credentials.", Toasts.Type.MESSAGE);
+                showToast("Token saved, but could not verify credentials.", "message");
             }
         } catch (error) {
-            showToast(error instanceof Error ? error.message : "Failed to add token.", Toasts.Type.FAILURE);
+            showToast(error instanceof Error ? error.message : "Failed to add token.", "failure");
         } finally {
             setIsAdding(false);
         }
@@ -111,7 +111,7 @@ export function TokenManager() {
     const handleBulkAdd = async () => {
         const lines = bulkTokens.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         if (lines.length === 0) {
-            showToast("No tokens found in input.", Toasts.Type.FAILURE);
+            showToast("No tokens found in input.", "failure");
             return;
         }
 
@@ -137,14 +137,14 @@ export function TokenManager() {
         }
 
         if (newEntries.length === 0) {
-            showToast("All provided tokens already exist in your list.", Toasts.Type.MESSAGE);
+            showToast("All provided tokens already exist in your list.", "message");
             return;
         }
 
         persistTokens([...tokenList, ...newEntries]);
         setBulkTokens("");
         setIsBulkMode(false);
-        showToast(`Added ${newEntries.length} tokens.`, Toasts.Type.SUCCESS);
+        showToast(`Added ${newEntries.length} tokens.`, "success");
     };
 
     const handleToggleToken = (id: string, enabled: boolean) => {
@@ -163,10 +163,10 @@ export function TokenManager() {
             });
 
             persistTokens(updated);
-            showToast("Token removed.", Toasts.Type.SUCCESS);
+            showToast("Token removed.", "success");
         } catch (error) {
             console.error("[NitroSniper] Error removing token:", error);
-            showToast("Failed to remove token.", Toasts.Type.FAILURE);
+            showToast("Failed to remove token.", "failure");
         }
     };
 
@@ -184,12 +184,12 @@ export function TokenManager() {
                     avatarUrl
                 } : t);
                 persistTokens(updated);
-                showToast(`Token is valid (@${res.username ?? "user"})!`, Toasts.Type.SUCCESS);
+                showToast(`Token is valid (@${res.username ?? "user"})!`, "success");
             } else {
-                showToast(`Validation failed: ${res.error ?? "Invalid token"}`, Toasts.Type.FAILURE);
+                showToast(`Validation failed: ${res.error ?? "Invalid token"}`, "failure");
             }
         } catch (err) {
-            showToast("Validation failed: " + (err instanceof Error ? err.message : String(err)), Toasts.Type.FAILURE);
+            showToast("Validation failed: " + (err instanceof Error ? err.message : String(err)), "failure");
         } finally {
             setValidatingIds(prev => ({ ...prev, [item.id]: false }));
         }

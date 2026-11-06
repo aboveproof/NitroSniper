@@ -14,7 +14,7 @@ import { Heading } from "@components/Heading";
 import { Paragraph } from "@components/Paragraph";
 import { Span } from "@components/Span";
 import { OptionType } from "@utils/types";
-import { showToast, Toasts, useState } from "@webpack/common";
+import { showToast, useState } from "@webpack/common";
 
 import { TokenManager } from "./components/TokenManager";
 import { ListEditor, Section } from "./components/SettingsSections";
@@ -39,10 +39,10 @@ function TestWebhookButton() {
             onClick={() => {
                 void sendTestWebhook(webhookUrl)
                     .then(() => {
-                        showToast("Test webhook sent successfully.", Toasts.Type.SUCCESS);
+                        showToast("Test webhook sent successfully.", "success");
                     })
                     .catch((error: unknown) => {
-                        showToast(getToastErrorMessage(error), Toasts.Type.FAILURE);
+                        showToast(getToastErrorMessage(error), "failure");
                     });
             }}
         >
@@ -144,7 +144,7 @@ function StatsSection() {
                 onClick={() => {
                     resetStats(settings.store);
                     forceUpdate(n => n + 1);
-                    showToast("Claim stats reset.", Toasts.Type.MESSAGE);
+                    showToast("Claim stats reset.", "message");
                 }}
             >
                 Reset Stats

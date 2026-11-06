@@ -6,7 +6,7 @@ thread-context), DMs (user-context) and group DMs (gdm-context).
 
 import { findGroupChildrenByChildId, NavContextMenuPatchCallback } from "@api/ContextMenu";
 import type { Channel, Guild } from "@vencord/discord-types";
-import { Menu, showToast, Toasts } from "@webpack/common";
+import { Menu, showToast } from "@webpack/common";
 
 import { isListed, toggleListed, type ListKind, type LocationKind } from "../filters";
 
@@ -33,7 +33,7 @@ function makeToggleItem(list: ListKind, kind: LocationKind, id: string, label: s
             checked={active}
             action={() => {
                 const nowActive = toggleListed(list, kind, id);
-                showToast(nowActive ? `Added to ${list}` : `Removed from ${list}`, Toasts.Type.MESSAGE);
+                showToast(nowActive ? `Added to ${list}` : `Removed from ${list}`, "message");
             }}
         />
     );
