@@ -39,10 +39,10 @@ function TestWebhookButton() {
             onClick={() => {
                 void sendTestWebhook(webhookUrl)
                     .then(() => {
-                        showToast("Test webhook sent successfully.", "success");
+                        showToast({ text: "Test webhook sent successfully.", variant: "success" });
                     })
                     .catch((error: unknown) => {
-                        showToast(getToastErrorMessage(error), "failure");
+                        showToast({ text: getToastErrorMessage(error), variant: "critical" });
                     });
             }}
         >
@@ -144,7 +144,7 @@ function StatsSection() {
                 onClick={() => {
                     resetStats(settings.store);
                     forceUpdate(n => n + 1);
-                    showToast("Claim stats reset.", "message");
+                    showToast({ text: "Claim stats reset.", variant: "default" });
                 }}
             >
                 Reset Stats

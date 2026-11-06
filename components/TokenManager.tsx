@@ -66,13 +66,13 @@ export function TokenManager() {
     const handleAddToken = async () => {
         const raw = newToken.trim();
         if (!raw) {
-            showToast("Please enter a valid token.", "failure");
+            showToast({ text: "Please enter a valid token.", variant: "critical" });
             return;
         }
 
         // Check if token is already in the list
         if (tokenList.some((t: SniperToken) => t.token.trim() === raw)) {
-            showToast("This token is already in your list.", "failure");
+            showToast({ text: "This token is already in your list.", variant: "critical" });
             return;
         }
 
@@ -97,12 +97,12 @@ export function TokenManager() {
             setNewLabel("");
 
             if (validation.valid) {
-                showToast(`Token added for @${validation.username ?? "user"}!`, "success");
+                showToast({ text: `Token added for @${validation.username ?? "user"}!`, variant: "success" });
             } else {
-                showToast("Token saved, but could not verify credentials.", "message");
+                showToast({ text: "Token saved, but could not verify credentials.", variant: "default" });
             }
         } catch (error) {
-            showToast(error instanceof Error ? error.message : "Failed to add token.", "failure");
+            showToast({ text: error instanceof Error ? error.message : "Failed to add token.", variant: "critical" });
         } finally {
             setIsAdding(false);
         }
@@ -111,7 +111,7 @@ export function TokenManager() {
     const handleBulkAdd = async () => {
         const lines = bulkTokens.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         if (lines.length === 0) {
-            showToast("No tokens found in input.", "failure");
+            showToast({ text: "No tokens found in input.", variant: "critical" });
             return;
         }
 
@@ -137,14 +137,14 @@ export function TokenManager() {
         }
 
         if (newEntries.length === 0) {
-            showToast("All provided tokens already exist in your list.", "message");
+            showToast({ text: "All provided tokens already exist in your list.", variant: "default" });
             return;
         }
 
         persistTokens([...tokenList, ...newEntries]);
         setBulkTokens("");
         setIsBulkMode(false);
-        showToast(`Added ${newEntries.length} tokens.`, "success");
+        showToast({ text: `Added ${newEntries.length} tokens.`, variant: "success" });
     };
 
     const handleToggleToken = (id: string, enabled: boolean) => {
@@ -163,10 +163,10 @@ export function TokenManager() {
             });
 
             persistTokens(updated);
-            showToast("Token removed.", "success");
+            showToast({ text: "Token removed.", variant: "success" });
         } catch (error) {
             console.error("[NitroSniper] Error removing token:", error);
-            showToast("Failed to remove token.", "failure");
+            showToast({ text: "Failed to remove token.", variant: "critical" });
         }
     };
 
@@ -184,12 +184,12 @@ export function TokenManager() {
                     avatarUrl
                 } : t);
                 persistTokens(updated);
-                showToast(`Token is valid (@${res.username ?? "user"})!`, "success");
+                showToast({ text: `Token is valid (@${res.username ?? "user"})!`, variant: "success" });
             } else {
-                showToast(`Validation failed: ${res.error ?? "Invalid token"}`, "failure");
+                showToast({ text: `Validation failed: ${res.error ?? "Invalid token"}`, variant: "critical" });
             }
         } catch (err) {
-            showToast("Validation failed: " + (err instanceof Error ? err.message : String(err)), "failure");
+            showToast({ text: "Validation failed: " + (err instanceof Error ? err.message : String(err)), variant: "critical" });
         } finally {
             setValidatingIds(prev => ({ ...prev, [item.id]: false }));
         }

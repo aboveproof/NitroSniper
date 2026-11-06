@@ -33,7 +33,7 @@ function makeToggleItem(list: ListKind, kind: LocationKind, id: string, label: s
             checked={active}
             action={() => {
                 const nowActive = toggleListed(list, kind, id);
-                showToast(nowActive ? `Added to ${list}` : `Removed from ${list}`, "message");
+                showToast({ text: nowActive ? `Added to ${list}` : `Removed from ${list}`, variant: "default" });
             }}
         />
     );
