@@ -11,14 +11,12 @@ import definePlugin from "@utils/types";
 import { Message } from "@vencord/discord-types";
 import { ChannelStore, GuildStore, UserStore } from "@webpack/common";
 
-import { startCaptchaWatcher, stopCaptchaWatcher } from "./captchaWatcher";
 import { contextMenus } from "./components/SniperMenus";
 import { checkFilters } from "./filters";
 import { gatewayManager } from "./gateway";
 import { executeRedeem } from "./redeemer";
 import { settings } from "./settings";
 import { getStats, recordDetected, recordResult } from "./stats";
-import { resetStealthState } from "./stealth";
 import { cleanTokens, type ClaimRequest, type SniperToken } from "./types";
 import { sendClaimWebhook } from "./webhook";
 
@@ -180,8 +178,6 @@ export default definePlugin({
 
     start() {
         resetState();
-        resetStealthState();
-        startCaptchaWatcher();
         gatewayManager.init(
             request => handleIncomingClaimRequest(request),
             (tokenId, updates) => {
@@ -199,7 +195,6 @@ export default definePlugin({
 
     stop() {
         gatewayManager.stop();
-        stopCaptchaWatcher();
         claimQueue.length = 0;
         seenCodes.clear();
         claiming = false;

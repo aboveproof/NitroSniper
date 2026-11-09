@@ -140,28 +140,3 @@ export interface GiftCodeResolution {
     };
 }
 
-export interface StealthTiming {
-    lastClaimAt: number;
-    claimTimestamps: number[];
-    lastCaptchaAt: number;
-    captchaCount: number;
-}
-
-export const CAPTCHA_ERROR_CODES = [
-    50024, // execution error variants used for challenges
-    60003  // you need to verify (captcha required)
-] as const;
-
-export function isCaptchaResponse(status: number, data: string): boolean {
-    if (status === 429) return true; // rate limit = risk flag
-    try {
-        const parsed = JSON.parse(data) as { code?: number; message?: string; captcha_key?: unknown; };
-        if (parsed.captcha_key != null) return true;
-        if (parsed.code != null && (CAPTCHA_ERROR_CODES as readonly number[]).includes(parsed.code)) return true;
-        if (/captcha|verify that you are human/i.test(parsed.message ?? "")) return true;
-    } catch {
-        return /captcha|verify that you are human/i.test(data);
-    }
-    return false;
-}
-

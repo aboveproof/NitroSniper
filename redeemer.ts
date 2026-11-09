@@ -14,14 +14,6 @@ import { AuthenticationStore, UserStore } from "@webpack/common";
 import { resolveGiftType } from "./giftCode";
 import { settings } from "./settings";
 import {
-    canClaimNow,
-    humanizedClaimDelay,
-    isCaptchaResponse,
-    preValidateCode,
-    recordCaptchaSignal,
-    recordClaimAttempt
-} from "./stealth";
-import {
     ClaimAttempt,
     ClaimRequest,
     ClaimResult,
@@ -79,7 +71,6 @@ interface SingleRedeemResult {
     tokenLabel: string;
     alreadyHasSubscription?: boolean;
     codeExhaustedOrInvalid?: boolean;
-    captchaRequired?: boolean;
     error?: string;
 }
 
@@ -225,16 +216,6 @@ async function redeemViaToken(token: SniperToken, code: string, channelId?: stri
             };
         }
 
-        if (isCaptchaResponse(res.status, res.data)) {
-            recordCaptchaSignal(`token ${label}`);
-            return {
-                success: false,
-                tokenLabel: label,
-                captchaRequired: true,
-                error: "captcha_required"
-            };
-        }
-
         const parsed = parseTokenError(res.status, res.data);
         return {
             success: false,
@@ -274,16 +255,11 @@ async function redeemViaCurrentAccount(code: string, channelId?: string): Promis
                         : JSON.stringify(error?.body ?? { message: error?.message ?? String(error) });
                     const parsed = parseTokenError(status, data);
 
-                    if (isCaptchaResponse(status, data)) {
-                        recordCaptchaSignal("current account GiftActions");
-                    }
-
                     resolve({
                         success: false,
                         tokenLabel: label,
                         alreadyHasSubscription: parsed.alreadyHasSub,
                         codeExhaustedOrInvalid: parsed.codeExhausted,
-                        captchaRequired: isCaptchaResponse(status, data),
                         error: parsed.message
                     });
                 }
@@ -317,32 +293,6 @@ export async function executeRedeem(request: ClaimRequest): Promise<ClaimResult>
 
     const attempts: ClaimAttempt[] = [];
     const giftTypePromise = settings.store.webhookUrl.trim() ? resolveGiftType(request.code) : Promise.resolve(null);
-
-    // Stealth gate: velocity budgets + captcha cooldown
-    const gate = canClaimNow();
-    if (!gate.allowed) {
-        logger.warn(`Skipping code [${request.code}]: ${gate.reason}${gate.retryInMs ? ` (retry in ~${Math.round(gate.retryInMs / 1000)}s)` : ""}`);
-        return {
-            success: false,
-            giftType: await giftTypePromise,
-            elapsedMs: Math.max(1, Date.now() - startTime),
-            attempts: [{ tokenLabel: "stealth", success: false, error: gate.reason }]
-        };
-    }
-
-    // Pre-validate: never let dead bait codes touch the redeem endpoint
-    if (!await preValidateCode(request.code)) {
-        return {
-            success: false,
-            giftType: null,
-            elapsedMs: Math.max(1, Date.now() - startTime),
-            attempts: [{ tokenLabel: "pre-validation", success: false, error: "dead or exhausted code" }]
-        };
-    }
-
-    // Humanized reaction delay before the first redeem attempt
-    await humanizedClaimDelay();
-    recordClaimAttempt();
 
     logger.log(`Executing redeem for code [${request.code}] using strategy: ${strategy}`);
 
@@ -426,12 +376,6 @@ export async function executeRedeem(request: ClaimRequest): Promise<ClaimResult>
         // If the code is already claimed by someone else or completely invalid, stop trying further tokens
         if (result.codeExhaustedOrInvalid) {
             logger.warn(`Gift code [${request.code}] was already claimed or invalid. Aborting further attempts.`);
-            break;
-        }
-
-        // Captcha challenge: hammering more tokens while flagged only deepens the risk score
-        if (result.captchaRequired) {
-            logger.warn(`Captcha required on [${request.code}]. Aborting sequence and backing off.`);
             break;
         }
 

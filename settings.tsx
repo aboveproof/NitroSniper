@@ -77,39 +77,6 @@ function WhitelistSection() {
     );
 }
 
-function CaptchaSection() {
-    const { captchaPrevention, captchaWatcher, captchaAutoReload } = settings.use(["captchaPrevention", "captchaWatcher", "captchaAutoReload"]);
-    return (
-        <Section title="Captcha Prevention" defaultOpen={false}>
-            <FormSwitch
-                title="Prevention engine"
-                description="Back off after captcha signals. Never blocks fresh claims by default."
-                value={captchaPrevention}
-                onChange={v => settings.store.captchaPrevention = v}
-                hideBorder
-            />
-            <Flex flexDirection="row" gap="16px" flexWrap="wrap">
-                <span style={{ minWidth: 140 }}>
-                    <FormSwitch
-                        title="Captcha watcher"
-                        value={captchaWatcher}
-                        onChange={v => settings.store.captchaWatcher = v}
-                        hideBorder
-                    />
-                </span>
-                <span style={{ minWidth: 140 }}>
-                    <FormSwitch
-                        title="Auto-reload"
-                        value={captchaAutoReload}
-                        onChange={v => settings.store.captchaAutoReload = v}
-                        hideBorder
-                    />
-                </span>
-            </Flex>
-        </Section>
-    );
-}
-
 function StatsSection() {
     const { claimStats } = settings.use(["claimStats"]);
     const stats = getStats({ claimStats });
@@ -194,10 +161,6 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         component: WhitelistSection
     },
-    captchaSection: {
-        type: OptionType.COMPONENT,
-        component: CaptchaSection
-    },
     statsSection: {
         type: OptionType.COMPONENT,
         component: StatsSection
@@ -250,84 +213,6 @@ export const settings = definePluginSettings({
         type: OptionType.STRING,
         description: "Only claim in these DMs.",
         default: "",
-        restartNeeded: false,
-        hidden: true
-    },
-
-    captchaPrevention: {
-        type: OptionType.BOOLEAN,
-        description: "Captcha prevention engine.",
-        default: true,
-        restartNeeded: false,
-        hidden: true
-    },
-    stealthMinDelayMs: {
-        type: OptionType.NUMBER,
-        description: "Minimum humanized delay before claiming (ms).",
-        default: 0,
-        restartNeeded: false,
-        hidden: true
-    },
-    stealthMaxDelayMs: {
-        type: OptionType.NUMBER,
-        description: "Maximum humanized delay before claiming (ms).",
-        default: 0,
-        restartNeeded: false,
-        hidden: true
-    },
-    claimCooldownSeconds: {
-        type: OptionType.NUMBER,
-        description: "Minimum seconds between two claim attempts.",
-        default: 0,
-        restartNeeded: false,
-        hidden: true
-    },
-    maxClaimsPerHour: {
-        type: OptionType.NUMBER,
-        description: "Max claim attempts per hour (0 = unlimited).",
-        default: 0,
-        restartNeeded: false,
-        hidden: true
-    },
-    maxClaimsPerDay: {
-        type: OptionType.NUMBER,
-        description: "Max claim attempts per day (0 = unlimited).",
-        default: 0,
-        restartNeeded: false,
-        hidden: true
-    },
-    captchaBackoffMinutes: {
-        type: OptionType.NUMBER,
-        description: "Minutes to stop claiming after a captcha signal.",
-        default: 30,
-        restartNeeded: false,
-        hidden: true
-    },
-    preValidateCodes: {
-        type: OptionType.BOOLEAN,
-        description: "Resolve codes before redeeming.",
-        default: false,
-        restartNeeded: false,
-        hidden: true
-    },
-    captchaWatcher: {
-        type: OptionType.BOOLEAN,
-        description: "Watch for stuck captcha challenges.",
-        default: true,
-        restartNeeded: false,
-        hidden: true
-    },
-    captchaAutoReload: {
-        type: OptionType.BOOLEAN,
-        description: "Reload Discord when a captcha is stuck.",
-        default: false,
-        restartNeeded: false,
-        hidden: true
-    },
-    captchaStuckSeconds: {
-        type: OptionType.NUMBER,
-        description: "Seconds before a captcha counts as stuck.",
-        default: 10,
         restartNeeded: false,
         hidden: true
     },
