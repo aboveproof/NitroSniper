@@ -74,44 +74,47 @@ function buildClaimV2(
     const serverName = request.guildName ?? (request.guildId ? "Unknown server" : "Direct Messages");
     const rawChan = request.channelName ?? (request.guildId ? "channel" : "DMs");
     const channelLabel = rawChan.startsWith("#") ? rawChan : `#${rawChan}`;
-    const senderName = request.authorUsername ?? request.authorName ?? "unknown";
-    const detectedName = request.detectedBy ?? "unknown";
+    const channelUrl = request.channelId
+        ? `https://discord.com/channels/${request.guildId ?? "@me"}/${request.channelId}`
+        : null;
+    const senderMention = request.authorId ? `<@${request.authorId}>` : "unknown";
+    const spotterMention = request.detectedById ? `<@${request.detectedById}>` : (request.detectedBy ?? "unknown");
     const delay = claimResult?.elapsedMs ?? (request.detectedAt ? Math.max(1, Date.now() - request.detectedAt) : null);
     const messageUrl = buildMessageUrl(request);
 
     const headerText = claimed
-        ? `## 🎁 Claimed a gift code\n\`${request.code}\` landed on **${claimResult?.claimedBy ?? "an account"}**`
+        ? `## 🎁 Claimed a gift code\n\`${request.code}\` landed on \`${claimResult?.claimedBy ?? "an account"}\``
         : `## 🎁 Gift code missed\n\`${request.code}\` slipped away`;
 
     const detailLines = [
-        `**Server** ${serverName}`,
-        `**Channel** ${channelLabel}`,
-        `**Sender** ${senderName}`,
-        `**Spotted by** ${detectedName}${request.isAlt ? " (alt)" : " (main)"}`,
-        `**Delay** ${delay != null ? `${delay}ms` : "unknown"}`,
-        `**Lifetime** ${statsSummary(stats)}${rate != null ? ` (${rate}%)` : ""}`
+        `Server: \`${serverName}\``,
+        channelUrl
+            ? `Channel: [#${channelLabel.replace("#", "")}](${channelUrl}) (\`${request.channelId}\`)`
+            : `Channel: \`${channelLabel}\``,
+        `Sender: ${senderMention}${request.authorId ? ` (\`${request.authorId}\`)` : ""}`,
+        `Spotted by: ${spotterMention}${request.isAlt ? " (alt)" : " (main)"}${request.detectedById ? ` (\`${request.detectedById}\`)` : ""}`,
+        `Delay: \`${delay != null ? `${delay}ms` : "unknown"}\``,
+        `Lifetime: \`${statsSummary(stats)}${rate != null ? ` (${rate}%)` : ""}\``
     ];
 
-    const detailText = text(detailLines.join("\n"));
+    const headerBlock: V2Section | V2TextDisplay = request.guildIconUrl
+        ? {
+            type: 9,
+            components: [text(headerText)],
+            accessory: {
+                type: 11,
+                media: { url: request.guildIconUrl }
+            }
+        }
+        : text(headerText);
 
     const container: V2Container = {
         type: 17,
         accent_color: claimed ? SUCCESS_COLOR : BLURPLE_COLOR,
         components: [
-            text(headerText),
+            headerBlock,
             { type: 14, spacing: 1, divider: true },
-            // Section (type 9) requires an accessory; without a guild icon
-            // we fall back to a plain text display
-            ...(request.guildIconUrl
-                ? [{
-                    type: 9,
-                    components: [detailText],
-                    accessory: {
-                        type: 11,
-                        media: { url: request.guildIconUrl }
-                    } as V2Thumbnail
-                } as V2Section]
-                : [detailText]),
+            text(detailLines.join("\n")),
             { type: 14, spacing: 1, divider: true },
             {
                 type: 1,
@@ -139,7 +142,11 @@ function buildClaimV2(
     return {
         username: WEBHOOK_NAME,
         flags: IS_COMPONENTS_V2,
-        components: [container],
+        // gift link sits above the container
+        components: [
+            text(`https://discord.gift/${request.code}`),
+            container
+        ],
         allowed_mentions: { parse: [] }
     };
 }
@@ -200,6 +207,8 @@ async function postWebhook(url: URL, payload: V2Payload) {
     }
 }
 
+const sentCodes = new Set<string>();
+
 export async function sendClaimWebhook(
     webhookUrl: string,
     result: WebhookResult,
@@ -209,6 +218,14 @@ export async function sendClaimWebhook(
 ) {
     const url = parseWebhookUrl(webhookUrl);
     if (!url) return;
+
+    // one webhook per code per session, even if the claim result fires twice
+    if (sentCodes.has(request.code)) return;
+    sentCodes.add(request.code);
+    if (sentCodes.size > 500) {
+        const [first] = sentCodes;
+        sentCodes.delete(first);
+    }
 
     await postWebhook(url, buildClaimV2(result, request, claimResult));
 }
