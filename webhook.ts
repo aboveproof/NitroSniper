@@ -21,7 +21,7 @@ import type {
     WebhookResult
 } from "./types";
 
-const BLURPLE_COLOR = 0x5865f2;
+const FAILURE_COLOR = 0xf04747;
 const SUCCESS_COLOR = 0x43b581;
 const WEBHOOK_NAME = "NitroSniper";
 const IS_COMPONENTS_V2 = 1 << 15;
@@ -110,7 +110,7 @@ function buildClaimV2(
 
     const container: V2Container = {
         type: 17,
-        accent_color: claimed ? SUCCESS_COLOR : BLURPLE_COLOR,
+        accent_color: claimed ? SUCCESS_COLOR : FAILURE_COLOR,
         components: [
             headerBlock,
             { type: 14, spacing: 1, divider: true },
