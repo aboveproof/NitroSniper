@@ -15,6 +15,7 @@ import type {
     V2Button,
     V2Container,
     V2Payload,
+    V2Section,
     V2TextDisplay,
     V2Thumbnail,
     WebhookResult
@@ -91,24 +92,26 @@ function buildClaimV2(
         `**Lifetime** ${statsSummary(stats)}${rate != null ? ` (${rate}%)` : ""}`
     ];
 
+    const detailText = text(detailLines.join("\n"));
+
     const container: V2Container = {
         type: 17,
         accent_color: claimed ? SUCCESS_COLOR : BLURPLE_COLOR,
         components: [
             text(headerText),
             { type: 14, spacing: 1, divider: true },
-            {
-                type: 9,
-                components: [text(detailLines.join("\n"))],
-                ...(request.guildIconUrl
-                    ? {
-                        accessory: {
-                            type: 11,
-                            media: { url: request.guildIconUrl }
-                        } as V2Thumbnail
-                    }
-                    : {})
-            },
+            // Section (type 9) requires an accessory; without a guild icon
+            // we fall back to a plain text display
+            ...(request.guildIconUrl
+                ? [{
+                    type: 9,
+                    components: [detailText],
+                    accessory: {
+                        type: 11,
+                        media: { url: request.guildIconUrl }
+                    } as V2Thumbnail
+                } as V2Section]
+                : [detailText]),
             { type: 14, spacing: 1, divider: true },
             {
                 type: 1,
