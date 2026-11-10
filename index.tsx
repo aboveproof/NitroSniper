@@ -98,20 +98,26 @@ function createClaimRequest(message: Message, code: string): ClaimRequest | null
 }
 
 function handleIncomingClaimRequest(request: ClaimRequest) {
-    if (!checkFilters(request)) return;
+    try {
+        if (!checkFilters(request)) return;
 
-    if (seenCodes.has(request.code)) {
-        logger.log(`Ignoring duplicate gift code: ${request.code}`);
-        return;
+        if (seenCodes.has(request.code)) {
+            logger.log(`Ignoring duplicate gift code: ${request.code}`);
+            return;
+        }
+
+        seenCodes.add(request.code);
+        if (seenCodes.size > 1000) {
+            const [first] = seenCodes;
+            seenCodes.delete(first);
+        }
+
+        recordDetected();
+    } catch (statsError) {
+        // stats bookkeeping must never abort a claim
+        logger.error("Stats recording failed (claim continues):", statsError);
     }
 
-    seenCodes.add(request.code);
-    if (seenCodes.size > 1000) {
-        const [first] = seenCodes;
-        seenCodes.delete(first);
-    }
-
-    recordDetected(settings.store);
     claimQueue.push(request);
     void processQueue();
 }
@@ -126,10 +132,14 @@ async function processQueue() {
 
     try {
         const result = await executeRedeem(request);
-        recordResult(settings.store, result);
+        try {
+            recordResult(result);
+        } catch (statsError) {
+            logger.error("Stats recording failed (claim result still processed):", statsError);
+        }
 
         if (result.success) {
-            const stats = getStats(settings.store);
+            const stats = getStats();
             logger.log(`Successfully redeemed code: ${request.code} on ${result.claimedBy ?? "Unknown Account"} — ${stats.claimed}/${stats.attempted} lifetime`);
             void sendClaimWebhook(
                 settings.store.webhookUrl,

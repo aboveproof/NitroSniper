@@ -160,7 +160,7 @@ function buildClaimFields(request: ClaimRequest, claimResult?: ClaimResult): Web
     }
 
     // 10. Lifetime tally
-    const stats = getStats(settings.store);
+    const stats = getStats();
     const rate = hitRate(stats);
     fields.push({
         name: "Lifetime",
@@ -176,7 +176,7 @@ function buildClaimEmbed(
     request: ClaimRequest,
     claimResult?: ClaimResult
 ): WebhookEmbed {
-    const stats = getStats(settings.store);
+    const stats = getStats();
     const rate = hitRate(stats);
     return {
         author: {

@@ -14,12 +14,12 @@ import { Heading } from "@components/Heading";
 import { Paragraph } from "@components/Paragraph";
 import { Span } from "@components/Span";
 import { OptionType } from "@utils/types";
-import { showToast, useState } from "@webpack/common";
+import { showToast, useEffect, useState } from "@webpack/common";
 
 import { TokenManager } from "./components/TokenManager";
 import { ListEditor, Section } from "./components/SettingsSections";
 import { gatewayManager } from "./gateway";
-import { getStats, hitRate, resetStats, statsSummary, topAccounts } from "./stats";
+import { getStats, hitRate, resetStats, statsSummary, subscribeStats, topAccounts } from "./stats";
 import { RedeemStrategy, SniperToken } from "./types";
 import { sendTestWebhook } from "./webhook";
 
@@ -78,11 +78,12 @@ function WhitelistSection() {
 }
 
 function StatsSection() {
-    const { claimStats } = settings.use(["claimStats"]);
-    const stats = getStats({ claimStats });
+    const [, forceUpdate] = useState(0);
+    useEffect(() => subscribeStats(() => forceUpdate(n => n + 1)), []);
+
+    const stats = getStats();
     const rate = hitRate(stats);
     const accounts = topAccounts(stats);
-    const [, forceUpdate] = useState(0);
 
     return (
         <Section title="Claim Stats" defaultOpen>
@@ -109,8 +110,7 @@ function StatsSection() {
                 size="small"
                 variant="dangerSecondary"
                 onClick={() => {
-                    resetStats(settings.store);
-                    forceUpdate(n => n + 1);
+                    resetStats();
                     showToast({ text: "Claim stats reset.", variant: "default" });
                 }}
             >
@@ -164,14 +164,6 @@ export const settings = definePluginSettings({
     statsSection: {
         type: OptionType.COMPONENT,
         component: StatsSection
-    },
-
-    claimStats: {
-        type: OptionType.CUSTOM,
-        description: "Lifetime claim statistics.",
-        default: null,
-        restartNeeded: false,
-        hidden: true
     },
 
     blacklistServerIds: {
