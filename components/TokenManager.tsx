@@ -66,13 +66,13 @@ export function TokenManager() {
     const handleAddToken = async () => {
         const raw = newToken.trim();
         if (!raw) {
-            showToast({ text: "Please enter a valid token.", variant: "critical" });
+            showToast({ text: "Enter a token first.", variant: "critical" });
             return;
         }
 
         // Check if token is already in the list
         if (tokenList.some((t: SniperToken) => t.token.trim() === raw)) {
-            showToast({ text: "This token is already in your list.", variant: "critical" });
+            showToast({ text: "That token is already saved.", variant: "critical" });
             return;
         }
 
@@ -99,7 +99,7 @@ export function TokenManager() {
             if (validation.valid) {
                 showToast({ text: `Token added for @${validation.username ?? "user"}!`, variant: "success" });
             } else {
-                showToast({ text: "Token saved, but could not verify credentials.", variant: "default" });
+                showToast({ text: "Token saved, though it could not be verified.", variant: "default" });
             }
         } catch (error) {
             showToast({ text: error instanceof Error ? error.message : "Failed to add token.", variant: "critical" });
@@ -111,7 +111,7 @@ export function TokenManager() {
     const handleBulkAdd = async () => {
         const lines = bulkTokens.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         if (lines.length === 0) {
-            showToast({ text: "No tokens found in input.", variant: "critical" });
+            showToast({ text: "Nothing to import.", variant: "critical" });
             return;
         }
 
@@ -137,7 +137,7 @@ export function TokenManager() {
         }
 
         if (newEntries.length === 0) {
-            showToast({ text: "All provided tokens already exist in your list.", variant: "default" });
+            showToast({ text: "Those tokens are already saved.", variant: "default" });
             return;
         }
 
@@ -192,21 +192,21 @@ export function TokenManager() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
-            <Paragraph style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-                Configured alt tokens will <strong>always listen for gift links in real time</strong> across all servers they are in via Discord Gateway, and can be used to redeem codes according to your chosen strategy.
+            <Paragraph style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
+                Alt tokens listen for gift links across every server they're in and can claim codes based on your strategy.
             </Paragraph>
 
             {/* List of tokens */}
             {tokenList.length === 0 ? (
                 <div style={{
-                    padding: "16px",
-                    borderRadius: "8px",
+                    padding: "18px 16px",
+                    borderRadius: "12px",
                     backgroundColor: "var(--background-secondary)",
                     border: "1px dashed var(--background-modifier-accent)",
                     textAlign: "center"
                 }}>
-                    <Paragraph style={{ color: "var(--text-muted)" }}>
-                        No alt tokens configured. Add tokens below to monitor more servers and redeem to secondary accounts.
+                    <Paragraph style={{ color: "var(--text-muted)", margin: 0 }}>
+                        No tokens yet. Add one below to watch more servers.
                     </Paragraph>
                 </div>
             ) : (
@@ -224,8 +224,9 @@ export function TokenManager() {
                                     alignItems: "center",
                                     justifyContent: "space-between",
                                     padding: "10px 14px",
-                                    borderRadius: "8px",
+                                    borderRadius: "12px",
                                     backgroundColor: "var(--background-secondary)",
+                                    border: "1px solid var(--background-modifier-accent)",
                                     gap: "12px"
                                 }}
                             >
@@ -286,7 +287,7 @@ export function TokenManager() {
                                         disabled={isValidating}
                                         onClick={() => handleVerifyToken(item)}
                                     >
-                                        {isValidating ? "Checking..." : "Verify"}
+                                        {isValidating ? "Checking" : "Verify"}
                                     </Button>
 
                                     <Button
@@ -314,22 +315,23 @@ export function TokenManager() {
             <div style={{
                 marginTop: "8px",
                 padding: "14px",
-                borderRadius: "8px",
+                borderRadius: "12px",
                 backgroundColor: "var(--background-secondary-alt)",
+                border: "1px solid var(--background-modifier-accent)",
                 display: "flex",
                 flexDirection: "column",
                 gap: "10px"
             }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Heading tag="h4" style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>
-                        {isBulkMode ? "Bulk Add Tokens" : "Add Alt Token"}
+                        {isBulkMode ? "Paste multiple" : "Add a token"}
                     </Heading>
                     <Button
                         size="small"
                         variant="link"
                         onClick={() => setIsBulkMode(!isBulkMode)}
                     >
-                        {isBulkMode ? "Single Token Mode" : "Bulk Paste Mode"}
+                        {isBulkMode ? "Single" : "Bulk paste"}
                     </Button>
                 </div>
 
@@ -338,7 +340,7 @@ export function TokenManager() {
                         <TextArea
                             value={bulkTokens}
                             onChange={(val: string) => setBulkTokens(val)}
-                            placeholder="Paste tokens here, one per line..."
+                            placeholder="One token per line"
                             rows={4}
                         />
                         <Button
@@ -346,7 +348,7 @@ export function TokenManager() {
                             onClick={handleBulkAdd}
                             disabled={!bulkTokens.trim()}
                         >
-                            Import Tokens
+                            Import
                         </Button>
                     </div>
                 ) : (
@@ -356,7 +358,7 @@ export function TokenManager() {
                                 <TextInput
                                     value={newToken}
                                     onChange={(val: string) => setNewToken(val)}
-                                    placeholder="Paste user token..."
+                                    placeholder="User token"
                                     type="password"
                                 />
                             </div>
@@ -364,7 +366,7 @@ export function TokenManager() {
                                 <TextInput
                                     value={newLabel}
                                     onChange={(val: string) => setNewLabel(val)}
-                                    placeholder="Label (optional)"
+                                    placeholder="Name (optional)"
                                 />
                             </div>
                             <Button
@@ -372,7 +374,7 @@ export function TokenManager() {
                                 disabled={isAdding || !newToken.trim()}
                                 onClick={handleAddToken}
                             >
-                                {isAdding ? "Adding..." : "Add"}
+                                {isAdding ? "Adding" : "Add"}
                             </Button>
                         </div>
                     </div>

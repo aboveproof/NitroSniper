@@ -73,7 +73,7 @@ export function checkFilters(request: ClaimRequest): boolean {
     const verdict = isLocationAllowed(request);
     if (!verdict.allowed) {
         logger.warn(`Skipping code [${request.code}]: ${verdict.reason}`);
-        showToast({ text: `NitroSniper skipped ${request.code}: ${verdict.reason}`, variant: "critical" });
+        showToast({ text: `Skipped ${request.code}: ${verdict.reason}`, variant: "critical" });
         return false;
     }
     return true;

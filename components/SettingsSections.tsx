@@ -1,9 +1,8 @@
 /*
-Compact settings UI for NitroSniper — sections instead of one endless scroll.
+NitroSniper settings UI. Rounded, quiet, matches Discord's own surfaces.
 */
 
 import { Flex } from "@components/Flex";
-import { FormSwitch } from "@components/FormSwitch";
 import { Heading } from "@components/Heading";
 import { Paragraph } from "@components/Paragraph";
 import { Span } from "@components/Span";
@@ -12,26 +11,34 @@ import { React, TextInput, useState } from "@webpack/common";
 import { toggleListed, type ListKind, type LocationKind } from "../filters";
 import { settings } from "../settings";
 
+const surface: React.CSSProperties = {
+    borderRadius: "12px",
+    backgroundColor: "var(--background-secondary)",
+    border: "1px solid var(--background-modifier-accent)"
+};
+
 const chipStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    gap: "4px",
-    padding: "2px 8px",
-    borderRadius: "12px",
+    gap: "6px",
+    padding: "3px 10px",
+    borderRadius: "8px",
     backgroundColor: "var(--background-secondary-alt)",
+    border: "1px solid var(--background-modifier-accent)",
     fontSize: "12px",
-    fontFamily: "monospace",
+    fontFamily: "var(--font-code)",
     color: "var(--text-default)"
 };
 
 const removeStyle: React.CSSProperties = {
     cursor: "pointer",
     color: "var(--text-muted)",
-    fontWeight: 700,
+    fontWeight: 600,
     lineHeight: 1,
     background: "none",
     border: "none",
-    padding: 0
+    padding: 0,
+    fontSize: "13px"
 };
 
 function settingKeyFor(list: ListKind, kind: LocationKind) {
@@ -51,16 +58,18 @@ export function ListEditor({ list, kind, title, hint }: { list: ListKind; kind: 
     const ids = (raw ?? "").split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div style={{ ...surface, padding: "12px 14px", display: "flex", flexDirection: "column", gap: "8px" }}>
             <Flex flexDirection="row" justifyContent="space-between" alignItems="center">
                 <Span size="md" weight="medium" color="text-strong">{title}</Span>
-                <Span size="sm" color="text-subtle">{ids.length} entrie{ids.length === 1 ? "" : "s"}</Span>
+                {ids.length > 0 && (
+                    <Span size="sm" color="text-subtle">{ids.length} ID{ids.length === 1 ? "" : "s"}</Span>
+                )}
             </Flex>
             <Paragraph size="sm" color="text-subtle" style={{ margin: 0 }}>{hint}</Paragraph>
             <TextInput
                 value={raw ?? ""}
                 onChange={(v: string) => { (settings.store as any)[settingKey] = v; }}
-                placeholder={list === "blacklist" ? "Never claim here" : "Only claim here"}
+                placeholder={list === "blacklist" ? "Paste IDs to block here" : "Paste IDs to allow here"}
             />
             {ids.length > 0 && (
                 <Flex flexDirection="row" gap="6px" flexWrap="wrap">
@@ -72,7 +81,7 @@ export function ListEditor({ list, kind, title, hint }: { list: ListKind; kind: 
                                 onClick={() => toggleListed(list, kind, id)}
                                 aria-label={`Remove ${id}`}
                             >
-                                ×
+                                x
                             </button>
                         </span>
                     ))}
@@ -82,18 +91,26 @@ export function ListEditor({ list, kind, title, hint }: { list: ListKind; kind: 
     );
 }
 
-const sectionHeaderStyle: React.CSSProperties = {
-    margin: 0,
-    cursor: "pointer",
-    userSelect: "none"
-};
+const chevronStyle = (open: boolean): React.CSSProperties => ({
+    color: "var(--text-muted)",
+    fontSize: "11px",
+    transform: open ? "rotate(180deg)" : "none",
+    transition: "transform 0.15s ease"
+});
 
 export function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean; }) {
     const [open, setOpen] = useState(defaultOpen);
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <div
-                style={sectionHeaderStyle}
+                style={{
+                    ...surface,
+                    margin: 0,
+                    cursor: "pointer",
+                    userSelect: "none",
+                    padding: "10px 14px",
+                    backgroundColor: open ? "var(--background-secondary)" : "transparent"
+                }}
                 onClick={() => setOpen(!open)}
                 role="button"
                 tabIndex={0}
@@ -101,10 +118,10 @@ export function Section({ title, children, defaultOpen = false }: { title: strin
             >
                 <Flex flexDirection="row" justifyContent="space-between" alignItems="center">
                     <Heading tag="h5" style={{ margin: 0 }}>{title}</Heading>
-                    <Span size="sm" color="text-muted">{open ? "▲" : "▼"}</Span>
+                    <span style={chevronStyle(open)}>▼</span>
                 </Flex>
             </div>
-            {open && <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>{children}</div>}
+            {open && <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>{children}</div>}
         </div>
     );
 }

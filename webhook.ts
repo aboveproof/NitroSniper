@@ -164,7 +164,7 @@ function buildClaimFields(request: ClaimRequest, claimResult?: ClaimResult): Web
     const rate = hitRate(stats);
     fields.push({
         name: "Lifetime",
-        value: `${statsSummary(stats)}${rate != null ? ` — ${rate}% hit rate` : ""}`,
+        value: `${statsSummary(stats)}${rate != null ? ` (${rate}% hit rate)` : ""}`,
         inline: false
     });
 

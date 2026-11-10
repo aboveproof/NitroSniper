@@ -44,7 +44,7 @@ function createSniperSubMenu(kind: LocationKind, id: string, name: string) {
     return (
         <Menu.MenuItem
             id="nitrosniper-filters"
-            label={`Sniper: Blacklist / Whitelist${where}`}
+            label={`Sniper${where}`}
         >
             {makeToggleItem("blacklist", kind, id, "Blacklist")}
             {makeToggleItem("whitelist", kind, id, "Whitelist")}

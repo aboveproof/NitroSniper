@@ -39,7 +39,7 @@ function TestWebhookButton() {
             onClick={() => {
                 void sendTestWebhook(webhookUrl)
                     .then(() => {
-                        showToast({ text: "Test webhook sent successfully.", variant: "success" });
+                        showToast({ text: "Test message sent.", variant: "success" });
                     })
                     .catch((error: unknown) => {
                         showToast({ text: getToastErrorMessage(error), variant: "critical" });
@@ -55,11 +55,11 @@ function BlacklistSection() {
     return (
         <Section title="Blacklists">
             <Paragraph size="sm" color="text-subtle" style={{ margin: 0 }}>
-                Right-click any server, channel, DM or group DM → "Sniper: Blacklist / Whitelist", or paste IDs below.
+                Right-click a server, channel, or DM and pick Sniper to block it, or paste IDs below.
             </Paragraph>
-            <ListEditor list="blacklist" kind="server" title="Servers" hint="Never claim in these servers." />
-            <ListEditor list="blacklist" kind="channel" title="Channels" hint="Never claim in these channels." />
-            <ListEditor list="blacklist" kind="dm" title="DMs & Groups" hint="User IDs or DM channel IDs. Never claim here." />
+            <ListEditor list="blacklist" kind="server" title="Servers" hint="Skip codes posted in these servers." />
+            <ListEditor list="blacklist" kind="channel" title="Channels" hint="Skip codes posted in these channels." />
+            <ListEditor list="blacklist" kind="dm" title="DMs & Groups" hint="User IDs or DM channel IDs to skip." />
         </Section>
     );
 }
@@ -68,11 +68,11 @@ function WhitelistSection() {
     return (
         <Section title="Whitelists" defaultOpen={false}>
             <Paragraph size="sm" color="text-subtle" style={{ margin: 0 }}>
-                If any whitelist has entries, claiming is restricted to whitelisted locations only. Blacklist always wins.
+                Add an ID here and the sniper only claims in those spots. Blacklisted places stay blocked either way. Empty whitelists mean claim everywhere.
             </Paragraph>
             <ListEditor list="whitelist" kind="server" title="Servers" hint="Only claim in these servers." />
             <ListEditor list="whitelist" kind="channel" title="Channels" hint="Only claim in these channels." />
-            <ListEditor list="whitelist" kind="dm" title="DMs & Groups" hint="User IDs or DM channel IDs." />
+            <ListEditor list="whitelist" kind="dm" title="DMs & Groups" hint="User IDs or DM channel IDs to allow." />
         </Section>
     );
 }
@@ -111,7 +111,7 @@ function StatsSection() {
                 variant="dangerSecondary"
                 onClick={() => {
                     resetStats();
-                    showToast({ text: "Claim stats reset.", variant: "default" });
+                    showToast({ text: "Stats cleared.", variant: "default" });
                 }}
             >
                 Reset Stats
@@ -123,13 +123,13 @@ function StatsSection() {
 export const settings = definePluginSettings({
     tokenManager: {
         type: OptionType.COMPONENT,
-        description: "Configure secondary account tokens.",
+        description: "Alt account tokens.",
         component: TokenManager
     },
     tokens: {
         type: OptionType.CUSTOM,
         default: [] as SniperToken[],
-        description: "Stored list of alt account tokens.",
+        description: "Token list.",
         onChange(newTokens: SniperToken[]) {
             gatewayManager.syncTokens(newTokens);
         }
@@ -137,18 +137,18 @@ export const settings = definePluginSettings({
 
     redeemStrategy: {
         type: OptionType.SELECT,
-        description: "Which account redeems the gift code.",
+        description: "Pick which account claims the code.",
         options: [
-            { label: "Current Account First, then Alts", value: RedeemStrategy.CURRENT_FIRST, default: true },
-            { label: "Alts First, then Current Account", value: RedeemStrategy.ALTS_FIRST },
-            { label: "Alts Only", value: RedeemStrategy.ALTS_ONLY },
-            { label: "Race (All Accounts Simultaneously)", value: RedeemStrategy.RACE },
-            { label: "Current Account Only (Alts Only Listen)", value: RedeemStrategy.CURRENT_ONLY }
+            { label: "Main account first, alts as backup", value: RedeemStrategy.CURRENT_FIRST, default: true },
+            { label: "Alts first, main account as backup", value: RedeemStrategy.ALTS_FIRST },
+            { label: "Alts only", value: RedeemStrategy.ALTS_ONLY },
+            { label: "Everyone at once", value: RedeemStrategy.RACE },
+            { label: "Main account only, alts just listen", value: RedeemStrategy.CURRENT_ONLY }
         ]
     },
     ignoreOwnGiftLinks: {
         type: OptionType.BOOLEAN,
-        description: "Skip gift links sent by you.",
+        description: "Ignore links you post yourself.",
         default: false,
         restartNeeded: false
     },
@@ -168,42 +168,42 @@ export const settings = definePluginSettings({
 
     blacklistServerIds: {
         type: OptionType.STRING,
-        description: "Never claim in these servers.",
+        description: "Servers to skip.",
         default: "",
         restartNeeded: false,
         hidden: true
     },
     blacklistChannelIds: {
         type: OptionType.STRING,
-        description: "Never claim in these channels.",
+        description: "Channels to skip.",
         default: "",
         restartNeeded: false,
         hidden: true
     },
     blacklistDmIds: {
         type: OptionType.STRING,
-        description: "Never claim in these DMs.",
+        description: "DMs to skip.",
         default: "",
         restartNeeded: false,
         hidden: true
     },
     whitelistServerIds: {
         type: OptionType.STRING,
-        description: "Only claim in these servers.",
+        description: "Servers to allow.",
         default: "",
         restartNeeded: false,
         hidden: true
     },
     whitelistChannelIds: {
         type: OptionType.STRING,
-        description: "Only claim in these channels.",
+        description: "Channels to allow.",
         default: "",
         restartNeeded: false,
         hidden: true
     },
     whitelistDmIds: {
         type: OptionType.STRING,
-        description: "Only claim in these DMs.",
+        description: "DMs to allow.",
         default: "",
         restartNeeded: false,
         hidden: true
@@ -211,7 +211,7 @@ export const settings = definePluginSettings({
 
     webhookUrl: {
         type: OptionType.STRING,
-        description: "Discord webhook URL for claim notifications. Empty = off.",
+        description: "Webhook URL for claim pings. Leave empty to turn off.",
         default: "",
         restartNeeded: false
     },
