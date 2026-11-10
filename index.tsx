@@ -20,7 +20,7 @@ import { getStats, recordDetected, recordResult } from "./stats";
 import { cleanTokens, type ClaimRequest, type SniperToken } from "./types";
 import { sendClaimWebhook } from "./webhook";
 
-const GIFT_LINK_REGEX = /(?:discord\.gift\/|discord\.com\/gifts?\/)([a-zA-Z0-9]{16,24})/;
+const GIFT_LINK_REGEX = /(?:discord\.gift\/|discord\.com\/gifts?\/)([a-zA-Z0-9]{16,24})/g;
 
 const logger = new Logger("NitroSniper");
 
@@ -48,14 +48,18 @@ function isMessageOlderThanStart(message: Message) {
     return new Date(message.timestamp).getTime() < startTime;
 }
 
-function extractGiftCode(content: string) {
-    return content.match(GIFT_LINK_REGEX)?.[1] ?? null;
+function extractGiftCodes(content: string) {
+    GIFT_LINK_REGEX.lastIndex = 0;
+    const codes: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = GIFT_LINK_REGEX.exec(content)) !== null) {
+        if (!codes.includes(match[1])) codes.push(match[1]);
+    }
+    return codes;
 }
 
-function createClaimRequest(message: Message): ClaimRequest | null {
+function createClaimRequest(message: Message, code: string): ClaimRequest | null {
     const detectedAt = Date.now();
-    const code = message.content ? extractGiftCode(message.content) : null;
-    if (!code) return null;
 
     const authorId = message.author?.id;
     const authorAvatar = message.author?.avatar;
@@ -182,9 +186,9 @@ export default definePlugin({
             request => handleIncomingClaimRequest(request),
             (tokenId, updates) => {
                 const currentTokens: SniperToken[] = settings.store.tokens ?? [];
-                const idx = currentTokens.findIndex(t => t.id === tokenId);
+                const cloned = cleanTokens(currentTokens);
+                const idx = cloned.findIndex(t => t.id === tokenId);
                 if (idx !== -1) {
-                    const cloned = cleanTokens(currentTokens);
                     cloned[idx] = { ...cloned[idx], ...updates };
                     settings.store.tokens = cleanTokens(cloned);
                 }
@@ -204,10 +208,13 @@ export default definePlugin({
         MESSAGE_CREATE({ message }: { message: Message; }) {
             if (!message.content || shouldSkipMessage(message) || isMessageOlderThanStart(message)) return;
 
-            const request = createClaimRequest(message);
-            if (!request) return;
+            const codes = extractGiftCodes(message.content);
+            for (const code of codes) {
+                const request = createClaimRequest(message, code);
+                if (!request) continue;
 
-            handleIncomingClaimRequest(request);
+                handleIncomingClaimRequest(request);
+            }
         }
     }
 });

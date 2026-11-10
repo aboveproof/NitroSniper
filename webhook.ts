@@ -23,13 +23,20 @@ const BLURPLE_COLOR = 0x5865f2;
 const SUCCESS_COLOR = 0x43b581;
 const WEBHOOK_NAME = "NitroSniper";
 
+const ALLOWED_WEBHOOK_ORIGINS = new Set(["https://discord.com", "https://discordapp.com"]);
+
 function parseWebhookUrl(webhookUrl: string) {
     const trimmed = webhookUrl.trim();
     if (!trimmed) return null;
 
     try {
-        return new URL(trimmed);
-    } catch {
+        const url = new URL(trimmed);
+        if (!ALLOWED_WEBHOOK_ORIGINS.has(url.origin)) {
+            throw new Error("Webhook URL must point to discord.com or discordapp.com.");
+        }
+        return url;
+    } catch (e) {
+        if (e instanceof Error && e.message.includes("discord.com")) throw e;
         throw new Error("Webhook URL is invalid.");
     }
 }

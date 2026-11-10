@@ -152,20 +152,15 @@ export function TokenManager() {
         persistTokens(updated);
     };
 
-    const handleRemoveToken = (targetItem: SniperToken, index: number) => {
-        try {
-            const currentList = tokenList.length > 0 ? tokenList : (Array.isArray(settings.store.tokens) ? settings.store.tokens : []);
-            const updated = cleanTokens(currentList).filter((t, i) => {
-                if (targetItem.id && t.id === targetItem.id) return false;
-                if (targetItem.token && t.token === targetItem.token) return false;
-                if (i === index) return false;
-                return true;
-            });
+    const handleRemoveToken = (targetItem: SniperToken) => {
+        const currentList: SniperToken[] = Array.isArray(settings.store.tokens) ? settings.store.tokens : [];
+        const updated = currentList.filter(t => t.id === targetItem.id && t.token === targetItem.token);
+        const removed = updated.length > 0;
 
-            persistTokens(updated);
+        if (removed) {
+            persistTokens(currentList.filter(t => !(t.id === targetItem.id && t.token === targetItem.token)));
             showToast({ text: "Token removed.", variant: "success" });
-        } catch (error) {
-            console.error("[NitroSniper] Error removing token:", error);
+        } else {
             showToast({ text: "Failed to remove token.", variant: "critical" });
         }
     };
@@ -297,7 +292,7 @@ export function TokenManager() {
                                     <Button
                                         size="small"
                                         variant="dangerSecondary"
-                                        onClick={() => handleRemoveToken(item, index)}
+                                        onClick={() => handleRemoveToken(item)}
                                     >
                                         Remove
                                     </Button>

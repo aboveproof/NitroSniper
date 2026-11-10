@@ -199,7 +199,8 @@ async function redeemViaToken(token: SniperToken, code: string, channelId?: stri
                 body: JSON.stringify({
                     channel_id: channelId ?? null,
                     payment_source_id: null
-                })
+                }),
+                signal: AbortSignal.timeout(15000)
             });
 
             res = {
@@ -240,13 +241,23 @@ async function redeemViaCurrentAccount(code: string, channelId?: string): Promis
     // If GiftActions is available, use Discord's native redeem flow
     if (GiftActions?.redeemGiftCode) {
         return new Promise(resolve => {
+            let settled = false;
+            const settle = (r: SingleRedeemResult) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(r);
+            };
+            // Guard: the action can open a modal instead of calling either callback,
+            // which would hang the claim queue forever
+            const timer = setTimeout(() => {
+                settle({ success: false, tokenLabel: label, error: "redeem flow timed out" });
+            }, 20000);
+
             GiftActions.redeemGiftCode({
                 code,
                 onRedeemed: () => {
-                    resolve({
-                        success: true,
-                        tokenLabel: label
-                    });
+                    settle({ success: true, tokenLabel: label });
                 },
                 onError: (error: any) => {
                     const status = error?.status ?? error?.body?.status ?? 400;
@@ -255,7 +266,7 @@ async function redeemViaCurrentAccount(code: string, channelId?: string): Promis
                         : JSON.stringify(error?.body ?? { message: error?.message ?? String(error) });
                     const parsed = parseTokenError(status, data);
 
-                    resolve({
+                    settle({
                         success: false,
                         tokenLabel: label,
                         alreadyHasSubscription: parsed.alreadyHasSub,
