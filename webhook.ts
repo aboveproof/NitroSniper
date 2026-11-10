@@ -134,8 +134,7 @@ function buildClaimV2(
                         } as V2Button]
                         : [])
                 ]
-            },
-            text(`-# ${stats.claimed} claimed / ${stats.attempted} attempted`)
+            }
         ]
     };
 
