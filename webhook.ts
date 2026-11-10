@@ -83,8 +83,8 @@ function buildClaimV2(
     const messageUrl = buildMessageUrl(request);
 
     const headerText = claimed
-        ? `## 🎁 Claimed a gift code\n\`${request.code}\` landed on \`${claimResult?.claimedBy ?? "an account"}\``
-        : `## 🎁 Gift code missed\n\`${request.code}\` slipped away`;
+        ? `## \`🎁\` Claimed a gift code\n\`${request.code}\` landed on \`${claimResult?.claimedBy ?? "an account"}\``
+        : `## \`🎁\` Gift code missed\n\`${request.code}\` slipped away`;
 
     const detailLines = [
         `Server: \`${serverName}\``,
