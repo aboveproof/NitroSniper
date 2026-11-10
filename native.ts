@@ -40,6 +40,7 @@ export async function sendWebhook(_: IpcMainInvokeEvent, webhookUrl: string, pay
             return { status: -1, data: "Webhook URL must be a Discord webhook (discord.com / discordapp.com)." };
         }
         url.searchParams.set("wait", "true");
+        url.searchParams.set("with_components", "true");
 
         const response = await fetch(url, {
             method: "POST",

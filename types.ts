@@ -140,3 +140,60 @@ export interface GiftCodeResolution {
     };
 }
 
+/* Components V2 webhook payload types */
+
+export interface V2TextDisplay {
+    type: 10;
+    content: string;
+}
+
+export interface V2Thumbnail {
+    type: 11;
+    media: { url: string; };
+    description?: string;
+}
+
+export interface V2Section {
+    type: 9;
+    components: V2TextDisplay[];
+    accessory?: V2Thumbnail;
+}
+
+export interface V2Separator {
+    type: 14;
+    spacing?: 1 | 2;
+    divider?: boolean;
+}
+
+export interface V2Button {
+    type: 2;
+    style: 1 | 2 | 3 | 4 | 5;
+    label?: string;
+    url?: string;
+    custom_id?: string;
+    disabled?: boolean;
+}
+
+export interface V2ActionRow {
+    type: 1;
+    components: V2Button[];
+}
+
+export interface V2Container {
+    type: 17;
+    accent_color?: number;
+    spoiler?: boolean;
+    components: Array<V2TextDisplay | V2Section | V2Separator | V2ActionRow>;
+}
+
+export type V2Component = V2TextDisplay | V2Section | V2Separator | V2ActionRow | V2Container;
+
+export interface V2Payload {
+    username?: string;
+    flags: number;
+    components: V2Component[];
+    allowed_mentions: {
+        parse: string[];
+    };
+}
+

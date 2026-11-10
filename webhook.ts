@@ -8,20 +8,22 @@ https://github.com/neoarz/NitroSniper
 
 import type { PluginNative } from "@utils/types";
 
-import { settings } from "./settings";
 import { getStats, hitRate, statsSummary } from "./stats";
 import type {
     ClaimRequest,
     ClaimResult,
-    WebhookEmbed,
-    WebhookField,
-    WebhookPayload,
+    V2Button,
+    V2Container,
+    V2Payload,
+    V2TextDisplay,
+    V2Thumbnail,
     WebhookResult
 } from "./types";
 
 const BLURPLE_COLOR = 0x5865f2;
 const SUCCESS_COLOR = 0x43b581;
 const WEBHOOK_NAME = "NitroSniper";
+const IS_COMPONENTS_V2 = 1 << 15;
 
 const ALLOWED_WEBHOOK_ORIGINS = new Set(["https://discord.com", "https://discordapp.com"]);
 
@@ -50,148 +52,96 @@ function getNative() {
     return native;
 }
 
-function createPayload(embeds: WebhookEmbed[], content?: string): WebhookPayload {
-    return {
-        content,
-        username: WEBHOOK_NAME,
-        embeds,
-        allowed_mentions: {
-            parse: []
-        }
-    };
+function text(content: string): V2TextDisplay {
+    return { type: 10, content };
 }
 
 function buildMessageUrl(request: ClaimRequest) {
     if (!request.channelId || !request.messageId) return null;
-
     return `https://discord.com/channels/${request.guildId ?? "@me"}/${request.channelId}/${request.messageId}`;
 }
 
-function buildClaimFields(request: ClaimRequest, claimResult?: ClaimResult): WebhookField[] {
-    const fields: WebhookField[] = [];
-
-    // 1. Code (inline: true)
-    fields.push({
-        name: "Code",
-        value: `\`${request.code}\``,
-        inline: true
-    });
-
-    // 2. Link (inline: true)
-    fields.push({
-        name: "Link",
-        value: `[Claim Link](https://discord.gift/${request.code})`,
-        inline: true
-    });
-
-    // 3. Detected By (Alt) or (Main) (inline: false)
-    const detectedName = request.detectedBy ?? "Unknown";
-    const detectedTitle = request.isAlt ? "Detected By (Alt)" : "Detected By (Main)";
-    const detectedValue = request.detectedById
-        ? `${detectedName} ( \`${request.detectedById}\` )`
-        : detectedName;
-
-    fields.push({
-        name: detectedTitle,
-        value: detectedValue,
-        inline: false
-    });
-
-    // 4. Server (inline: true)
-    const serverName = request.guildName ?? (request.guildId ? "Unknown Server" : "Direct Messages");
-    const serverValue = request.guildId
-        ? `${serverName} ( \`${request.guildId}\` )`
-        : serverName;
-
-    fields.push({
-        name: "Server",
-        value: serverValue,
-        inline: true
-    });
-
-    // 5. Channel (inline: true)
-    const rawChan = request.channelName ?? (request.guildId ? "channel" : "Direct Messages");
-    const cleanChan = rawChan.startsWith("#") ? rawChan : `#${rawChan}`;
-    const channelValue = request.channelId
-        ? `${cleanChan} ( \`${request.channelId}\` )`
-        : cleanChan;
-
-    fields.push({
-        name: "Channel",
-        value: channelValue,
-        inline: true
-    });
-
-    // 6. Sender (inline: false)
-    const senderName = request.authorUsername ?? request.authorName ?? "Unknown";
-    const senderValue = request.authorId
-        ? `${senderName} ( \`${request.authorId}\` )`
-        : senderName;
-
-    fields.push({
-        name: "Sender",
-        value: senderValue,
-        inline: false
-    });
-
-    // 7. Message Link (inline: true)
-    const messageUrl = buildMessageUrl(request);
-    fields.push({
-        name: "Message Link",
-        value: messageUrl ? `[Jump to Message](${messageUrl})` : "None",
-        inline: true
-    });
-
-    // 8. Delay (inline: true)
-    const delay = claimResult?.elapsedMs ?? (request.detectedAt ? Math.max(1, Date.now() - request.detectedAt) : undefined);
-    fields.push({
-        name: "Delay",
-        value: typeof delay === "number" ? `\`${delay}ms\`` : "`Unknown`",
-        inline: true
-    });
-
-    // 9. If claimed, show Claimed on
-    if (claimResult?.success && claimResult.claimedBy) {
-        fields.push({
-            name: "Claimed on",
-            value: claimResult.claimedBy,
-            inline: false
-        });
-    }
-
-    // 10. Lifetime tally
-    const stats = getStats();
-    const rate = hitRate(stats);
-    fields.push({
-        name: "Lifetime",
-        value: `${statsSummary(stats)}${rate != null ? ` (${rate}% hit rate)` : ""}`,
-        inline: false
-    });
-
-    return fields;
-}
-
-function buildClaimEmbed(
+function buildClaimV2(
     result: WebhookResult,
     request: ClaimRequest,
     claimResult?: ClaimResult
-): WebhookEmbed {
+): V2Payload {
+    const claimed = result === "claimed";
     const stats = getStats();
     const rate = hitRate(stats);
+
+    const serverName = request.guildName ?? (request.guildId ? "Unknown server" : "Direct Messages");
+    const rawChan = request.channelName ?? (request.guildId ? "channel" : "DMs");
+    const channelLabel = rawChan.startsWith("#") ? rawChan : `#${rawChan}`;
+    const senderName = request.authorUsername ?? request.authorName ?? "unknown";
+    const detectedName = request.detectedBy ?? "unknown";
+    const delay = claimResult?.elapsedMs ?? (request.detectedAt ? Math.max(1, Date.now() - request.detectedAt) : null);
+    const messageUrl = buildMessageUrl(request);
+
+    const headerText = claimed
+        ? `## 🎁 Claimed a gift code\n\`${request.code}\` landed on **${claimResult?.claimedBy ?? "an account"}**`
+        : `## 🎁 Gift code missed\n\`${request.code}\` slipped away`;
+
+    const detailLines = [
+        `**Server** ${serverName}`,
+        `**Channel** ${channelLabel}`,
+        `**Sender** ${senderName}`,
+        `**Spotted by** ${detectedName}${request.isAlt ? " (alt)" : " (main)"}`,
+        `**Delay** ${delay != null ? `${delay}ms` : "unknown"}`,
+        `**Lifetime** ${statsSummary(stats)}${rate != null ? ` (${rate}%)` : ""}`
+    ];
+
+    const container: V2Container = {
+        type: 17,
+        accent_color: claimed ? SUCCESS_COLOR : BLURPLE_COLOR,
+        components: [
+            text(headerText),
+            { type: 14, spacing: 1, divider: true },
+            {
+                type: 9,
+                components: [text(detailLines.join("\n"))],
+                ...(request.guildIconUrl
+                    ? {
+                        accessory: {
+                            type: 11,
+                            media: { url: request.guildIconUrl }
+                        } as V2Thumbnail
+                    }
+                    : {})
+            },
+            { type: 14, spacing: 1, divider: true },
+            {
+                type: 1,
+                components: [
+                    {
+                        type: 2,
+                        style: 5,
+                        label: "Open gift page",
+                        url: `https://discord.gift/${request.code}`
+                    } as V2Button,
+                    ...(messageUrl
+                        ? [{
+                            type: 2,
+                            style: 5,
+                            label: "Jump to message",
+                            url: messageUrl
+                        } as V2Button]
+                        : [])
+                ]
+            },
+            text(`-# ${stats.claimed} claimed / ${stats.attempted} attempted`)
+        ]
+    };
+
     return {
-        author: {
-            name: "🎁 Discord Gift Detected!",
-            icon_url: request.guildIconUrl
-        },
-        color: result === "claimed" ? SUCCESS_COLOR : BLURPLE_COLOR,
-        fields: buildClaimFields(request, claimResult),
-        footer: {
-            text: `${stats.claimed} claimed / ${stats.attempted} attempted${rate != null ? ` (${rate}%)` : ""}`
-        }
+        username: WEBHOOK_NAME,
+        flags: IS_COMPONENTS_V2,
+        components: [container],
+        allowed_mentions: { parse: [] }
     };
 }
 
-function buildTestWebhookPayload(): WebhookPayload {
+function buildTestPayload(): V2Payload {
     const testRequest: ClaimRequest = {
         code: "vhnuzeE2YkNCZ7sfYHHKebKXB",
         authorId: "1286955963508850719",
@@ -199,7 +149,7 @@ function buildTestWebhookPayload(): WebhookPayload {
         channelId: "731254148678549595",
         channelName: "lounge",
         guildId: "505974446914535426",
-        guildName: "Socialize | Active VC Server • Hangout • Voice Chat • Call • Social • Chill • Anime • Memes • Emojis",
+        guildName: "Socialize",
         guildIconUrl: "https://cdn.discordapp.com/icons/1181008820433068042/b0b48a4bfc0aa5f73018ceda9178c103.png?size=128",
         messageId: "1361736124858630274",
         detectedBy: "wkcp",
@@ -214,10 +164,7 @@ function buildTestWebhookPayload(): WebhookPayload {
         attempts: []
     };
 
-    return createPayload(
-        [buildClaimEmbed("failed", testRequest, testClaimResult)],
-        `https://discord.gift/${testRequest.code}`
-    );
+    return buildClaimV2("failed", testRequest, testClaimResult);
 }
 
 function parseWebhookError(data: string, status: number) {
@@ -242,7 +189,7 @@ function parseWebhookError(data: string, status: number) {
     }
 }
 
-async function postWebhook(url: URL, payload: WebhookPayload) {
+async function postWebhook(url: URL, payload: V2Payload) {
     const { status, data } = await getNative().sendWebhook(url.toString(), JSON.stringify(payload));
 
     if (status < 200 || status >= 300) {
@@ -260,8 +207,7 @@ export async function sendClaimWebhook(
     const url = parseWebhookUrl(webhookUrl);
     if (!url) return;
 
-    const content = `https://discord.gift/${request.code}`;
-    await postWebhook(url, createPayload([buildClaimEmbed(result, request, claimResult)], content));
+    await postWebhook(url, buildClaimV2(result, request, claimResult));
 }
 
 export async function sendTestWebhook(webhookUrl: string) {
@@ -270,5 +216,5 @@ export async function sendTestWebhook(webhookUrl: string) {
         throw new Error("Webhook URL is empty.");
     }
 
-    await postWebhook(url, buildTestWebhookPayload());
+    await postWebhook(url, buildTestPayload());
 }
