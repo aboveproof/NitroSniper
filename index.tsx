@@ -206,9 +206,22 @@ export default definePlugin({
 
     flux: {
         MESSAGE_CREATE({ message }: { message: Message; }) {
-            if (!message.content || shouldSkipMessage(message) || isMessageOlderThanStart(message)) return;
+            if (!message.content) return;
+
+            if (isOwnMessage(message)) {
+                if (settings.store.ignoreOwnGiftLinks) {
+                    logger.log("Skipping own gift link (ignoreOwnGiftLinks enabled)");
+                    return;
+                }
+            }
+
+            if (isMessageOlderThanStart(message)) return;
 
             const codes = extractGiftCodes(message.content);
+            if (codes.length > 0) {
+                logger.log(`Detected ${codes.length} gift code(s) in message from ${message.author?.username ?? "unknown"}: ${codes.join(", ")}`);
+            }
+
             for (const code of codes) {
                 const request = createClaimRequest(message, code);
                 if (!request) continue;

@@ -6,6 +6,7 @@ wins over whitelist.
 */
 
 import { Logger } from "@utils/Logger";
+import { showToast } from "@webpack/common";
 
 import { settings } from "./settings";
 import type { ClaimRequest } from "./types";
@@ -71,7 +72,8 @@ export function isLocationAllowed(request: ClaimRequest): FilterVerdict {
 export function checkFilters(request: ClaimRequest): boolean {
     const verdict = isLocationAllowed(request);
     if (!verdict.allowed) {
-        logger.log(`Skipping code [${request.code}]: ${verdict.reason}`);
+        logger.warn(`Skipping code [${request.code}]: ${verdict.reason}`);
+        showToast({ text: `NitroSniper skipped ${request.code}: ${verdict.reason}`, variant: "critical" });
         return false;
     }
     return true;
