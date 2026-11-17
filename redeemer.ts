@@ -234,14 +234,53 @@ async function redeemViaToken(token: SniperToken, code: string, channelId?: stri
     }
 }
 
+async function redeemViaGiftActions(code: string, label: string): Promise<SingleRedeemResult> {
+    return new Promise(resolve => {
+        let settled = false;
+        const settle = (r: SingleRedeemResult) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(r);
+        };
+        // Guard: the action can open a modal instead of calling either callback,
+        // which would hang the claim queue forever
+        const timer = setTimeout(() => {
+            settle({ success: false, tokenLabel: label, error: "redeem flow timed out" });
+        }, 20000);
+
+        GiftActions.redeemGiftCode({
+            code,
+            onRedeemed: () => {
+                settle({ success: true, tokenLabel: label });
+            },
+            onError: (error: any) => {
+                const status = error?.status ?? error?.body?.status ?? 400;
+                const data = typeof error?.body === "string"
+                    ? error.body
+                    : JSON.stringify(error?.body ?? { message: error?.message ?? String(error) });
+                const parsed = parseTokenError(status, data);
+
+                settle({
+                    success: false,
+                    tokenLabel: label,
+                    alreadyHasSubscription: parsed.alreadyHasSub,
+                    codeExhaustedOrInvalid: parsed.codeExhausted,
+                    error: parsed.message
+                });
+            }
+        });
+    });
+}
+
 async function redeemViaCurrentAccount(code: string, channelId?: string): Promise<SingleRedeemResult> {
     const currentUser = UserStore.getCurrentUser();
     const label = currentUser ? `Current Account (${currentUser.username})` : "Current Account";
 
-    // Fast path: redeem the current account's token directly through the API.
-    // GiftActions (Discord's redeem action) opens modals and renders UI, adding
-    // seconds per claim and hanging on dead codes until timeout. The direct
-    // token redeem goes through the main process and finishes in milliseconds.
+    // Fast path first: redeem the current account's token directly through the
+    // API. GiftActions opens modals and renders UI, adding seconds per claim
+    // and hanging on dead codes until timeout. If Discord challenges the direct
+    // call with a captcha, fall back to the UI flow for that code.
     const currentToken = (AuthenticationStore as any)?.getToken?.() as string | undefined;
     if (currentToken) {
         const selfToken: SniperToken = {
@@ -250,47 +289,24 @@ async function redeemViaCurrentAccount(code: string, channelId?: string): Promis
             label,
             enabled: true
         };
-        return redeemViaToken(selfToken, code, channelId);
+        const result = await redeemViaToken(selfToken, code, channelId);
+
+        const captchaChallenged = result.error != null
+            && (result.error.includes("captcha")
+                || result.error.includes("verify")
+                || result.error.toLowerCase().includes("you need to"));
+
+        if (!captchaChallenged || !GiftActions?.redeemGiftCode) {
+            return result;
+        }
+
+        logger.warn(`Direct redeem challenged on [${code}], retrying through Discord's redeem flow`);
+        return redeemViaGiftActions(code, label);
     }
 
-    // Fallback: Discord's own redeem flow when the token is unavailable
+    // No token available, use Discord's own redeem flow
     if (GiftActions?.redeemGiftCode) {
-        return new Promise(resolve => {
-            let settled = false;
-            const settle = (r: SingleRedeemResult) => {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timer);
-                resolve(r);
-            };
-            // Guard: the action can open a modal instead of calling either callback,
-            // which would hang the claim queue forever
-            const timer = setTimeout(() => {
-                settle({ success: false, tokenLabel: label, error: "redeem flow timed out" });
-            }, 20000);
-
-            GiftActions.redeemGiftCode({
-                code,
-                onRedeemed: () => {
-                    settle({ success: true, tokenLabel: label });
-                },
-                onError: (error: any) => {
-                    const status = error?.status ?? error?.body?.status ?? 400;
-                    const data = typeof error?.body === "string"
-                        ? error.body
-                        : JSON.stringify(error?.body ?? { message: error?.message ?? String(error) });
-                    const parsed = parseTokenError(status, data);
-
-                    settle({
-                        success: false,
-                        tokenLabel: label,
-                        alreadyHasSubscription: parsed.alreadyHasSub,
-                        codeExhaustedOrInvalid: parsed.codeExhausted,
-                        error: parsed.message
-                    });
-                }
-            });
-        });
+        return redeemViaGiftActions(code, label);
     }
 
     return {
