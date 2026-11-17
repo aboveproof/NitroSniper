@@ -238,7 +238,22 @@ async function redeemViaCurrentAccount(code: string, channelId?: string): Promis
     const currentUser = UserStore.getCurrentUser();
     const label = currentUser ? `Current Account (${currentUser.username})` : "Current Account";
 
-    // If GiftActions is available, use Discord's native redeem flow
+    // Fast path: redeem the current account's token directly through the API.
+    // GiftActions (Discord's redeem action) opens modals and renders UI, adding
+    // seconds per claim and hanging on dead codes until timeout. The direct
+    // token redeem goes through the main process and finishes in milliseconds.
+    const currentToken = (AuthenticationStore as any)?.getToken?.() as string | undefined;
+    if (currentToken) {
+        const selfToken: SniperToken = {
+            id: "current",
+            token: currentToken,
+            label,
+            enabled: true
+        };
+        return redeemViaToken(selfToken, code, channelId);
+    }
+
+    // Fallback: Discord's own redeem flow when the token is unavailable
     if (GiftActions?.redeemGiftCode) {
         return new Promise(resolve => {
             let settled = false;
@@ -276,18 +291,6 @@ async function redeemViaCurrentAccount(code: string, channelId?: string): Promis
                 }
             });
         });
-    }
-
-    // Fallback: If current token is available from AuthenticationStore
-    const currentToken = (AuthenticationStore as any)?.getToken?.() as string | undefined;
-    if (currentToken) {
-        const dummyToken: SniperToken = {
-            id: "current",
-            token: currentToken,
-            label,
-            enabled: true
-        };
-        return redeemViaToken(dummyToken, code, channelId);
     }
 
     return {
